@@ -1,0 +1,64 @@
+#!/bin/bash
+#SBATCH --job-name=LiBuriedArray
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
+#SBATCH --array=1-10
+#SBATCH --output=/scratch/user/humbertogn/Plating_kMC/logs/libur_%A_%a.out
+#SBATCH --error=/scratch/user/humbertogn/Plating_kMC/logs/libur_%A_%a.err
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 1 (heavy) — Li buried, ONE case per array task, all 40 in parallel.
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# WHY THIS EXISTS
+# The original single serial job timed out: the multi-frame voxelization in
+# the Li-buried step is expensive, and 40 cases in one process did not finish
+# within the wall-clock limit (it died mid-case-19). Running one case per
+# array task removes the bottleneck entirely — each task does ~1/40th of the
+# work and finishes in well under the 4 h limit, and they all run at once.
+#
+# Each task writes partial CSVs to:
+#   Analysis_Results/li_buried_parts/percycle_case_<K>.csv
+#   Analysis_Results/li_buried_parts/agg_case_<K>.csv
+# The merge happens in run_all_plating.slrm (step 1b) after the array is done.
+#
+# SUBMIT:
+#   sbatch run_li_buried_array.slrm
+#   # then, only after it finishes, submit the rest with a dependency:
+#   sbatch --dependency=afterok:<ARRAY_JOBID> run_all_plating.slrm
+# ═══════════════════════════════════════════════════════════════════════════
+
+SCRIPT_DIR="/scratch/user/humbertogn/Plating_kMC/scripts"
+VENV_PATH="/scratch/user/humbertogn/ase_env"
+CONFIG_MODULE="config_plating"
+LOG_DIR="/scratch/user/humbertogn/Plating_kMC/logs"
+
+mkdir -p "${LOG_DIR}"
+cd "${SCRIPT_DIR}" || { echo "ERROR: cannot cd to ${SCRIPT_DIR}"; exit 1; }
+
+module purge
+module load GCCcore/13.2.0 Python/3.11.5
+unset PYTHONPATH
+mkdir -p /scratch/user/humbertogn/matplotlib_cache
+export MPLCONFIGDIR=/scratch/user/humbertogn/matplotlib_cache
+source "${VENV_PATH}/bin/activate"
+
+# Array index 1..40 IS the case folder name (folders are 1..40).
+CASE="${SLURM_ARRAY_TASK_ID}"
+
+echo "════════════════════════════════════════════════════════════════"
+echo "  Li buried — case ${CASE}"
+echo "  $(date)   Host: $(hostname)   Task: ${SLURM_ARRAY_TASK_ID}"
+echo "════════════════════════════════════════════════════════════════"
+
+python li_buried_sweep_cfg.py --config "${CONFIG_MODULE}" --only-case "${CASE}"
+status=$?
+
+if [ ${status} -ne 0 ]; then
+    echo ">>> case ${CASE} FAILED (exit ${status})"
+else
+    echo ">>> case ${CASE} OK"
+fi
+echo "Finished: $(date)"

@@ -1,0 +1,48 @@
+#!/bin/bash
+#SBATCH --job-name=kmc3d_test
+#SBATCH --time=01:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4G
+#SBATCH --output=slurm_logs/kmc3d_test.%j.out
+#SBATCH --error=slurm_logs/kmc3d_test.%j.err
+# ---------------------------------------------------------------------------
+# SHORT TEST of the Li-S shuttle case (~20 min, 1 core).
+# Submit from the repository root:
+#     cd /scratch/user/humbertogn/kmc3d
+#     mkdir -p slurm_logs
+#     sbatch slurm/goKMC_test.slrm
+# Builds a reduced case (maxInterval 100, maxCycles 10) from
+# cases/fullcell_shuttle/ without touching the original, and runs it.
+# ---------------------------------------------------------------------------
+module purge
+module load GCCcore/13.2.0
+module load Python/3.11.5
+source /scratch/user/humbertogn/ase_env/bin/activate
+
+# single thread: the engine is sequential; keep BLAS from spawning threads
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export PYTHONDONTWRITEBYTECODE=1
+
+python -c "import sys, numpy; print(sys.version.split()[0], '| numpy', numpy.__version__)"
+
+BASE="$SLURM_SUBMIT_DIR"          # repository root
+cd "$BASE"
+
+# build the test case (idempotent: rebuilt every time)
+TEST=cases/fullcell_shuttle_test
+rm -rf "$TEST"
+cp -r cases/fullcell_shuttle "$TEST"
+rm -rf "$TEST/runs"
+sed -i 's/^maxInterval .*/maxInterval 100/; s/^maxCycles .*/maxCycles 10/;
+        s/^XYZprintFreq .*/XYZprintFreq 200/;
+        s/^snapshotEveryCycles .*/snapshotEveryCycles 0/;
+        s/^checkpointEveryCycles .*/checkpointEveryCycles 0/' \
+        "$TEST/PARAMETERS.in"
+
+python -m kmc3d.run --dir "$TEST" --out "$TEST/out_test"
+
+echo "kmc3d test done at $(date)"
+echo "check: $TEST/out_test/cycle_stats.csv and $TEST/out_test/kmc_info_log.txt"

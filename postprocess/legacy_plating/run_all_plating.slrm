@@ -1,0 +1,117 @@
+#!/bin/bash
+#SBATCH --job-name=PlatingAnalysis
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=24G
+#SBATCH --output=/scratch/user/humbertogn/Plating_kMC/logs/master_%j.out
+#SBATCH --error=/scratch/user/humbertogn/Plating_kMC/logs/master_%j.err
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MASTER ORCHESTRATOR — Plating k_p sweep analysis (steps 1b onward)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# IMPORTANT — two-stage submission (the heavy Li-buried step is split out):
+#
+#   1. sbatch run_li_buried_array.slrm         # 40 parallel array tasks
+#   2. sbatch --dependency=afterok:<JOBID> run_all_plating.slrm
+#
+# This master no longer RUNS the Li-buried sweep from scratch (that timed
+# out as a single serial job). Instead it MERGES the array's partial CSVs
+# (step 1b) and then runs the fast remaining steps. If you already have a
+# complete li_buried_per_cycle.csv from a previous serial run, the merge is
+# a no-op and the pipeline continues.
+#
+# Pipeline order:
+#   1b. Merge Li-buried partials  (from the array job)
+#   2.  Reaction tracking
+#   3.  Anode consumption
+#   4.  Activation barriers
+#   5.  CE & capacity
+#   6.  Porosity profiles
+#   7.  SEI chemistry
+#   8.  Comparison figures
+#   9.  k_p sensitivity ranking   (needs all *_ML_features.csv from 2-6)
+#   10. k_p focused regimes       (answers PBB Q2 / Q3)
+#
+# ─── TO ANALYZE A DIFFERENT PARAMETER SWEEP IN THE FUTURE ──────────────────
+#   1. Copy config_plating.py -> config_<newparam>.py and edit paths/cases
+#   2. Set CONFIG_MODULE below to the new config name
+#   3. mkdir the new logs/ and Analysis_Results/ dirs
+#   4. sbatch run_li_buried_array.slrm then sbatch run_all_plating.slrm
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── EDIT THESE ────────────────────────────────────────────────────────────
+SCRIPT_DIR="/scratch/user/humbertogn/Plating_kMC/scripts"
+VENV_PATH="/scratch/user/humbertogn/ase_env"
+CONFIG_MODULE="config_plating"     # the config_*.py to use (no .py extension)
+
+LOG_DIR="/scratch/user/humbertogn/Plating_kMC/logs"
+OUT_DIR="/scratch/user/humbertogn/Plating_kMC/Analysis_Results"
+
+# ── Setup ──────────────────────────────────────────────────────────────────
+mkdir -p "${LOG_DIR}" "${OUT_DIR}"
+cd "${SCRIPT_DIR}" || { echo "ERROR: cannot cd to ${SCRIPT_DIR}"; exit 1; }
+
+module purge
+module load GCCcore/13.2.0 Python/3.11.5
+unset PYTHONPATH
+mkdir -p /scratch/user/humbertogn/matplotlib_cache
+export MPLCONFIGDIR=/scratch/user/humbertogn/matplotlib_cache
+
+source "${VENV_PATH}/bin/activate"
+
+echo "════════════════════════════════════════════════════════════════"
+echo "  MASTER PLATING ANALYSIS"
+echo "  Started: $(date)   Host: $(hostname)"
+echo "  Config:  ${CONFIG_MODULE}"
+echo "════════════════════════════════════════════════════════════════"
+which python
+python --version
+python -c "import numpy, scipy, pandas, matplotlib, sklearn, shap" 2>/dev/null \
+    && echo "all packages OK" \
+    || echo "WARNING: some packages missing (sklearn/shap only needed for ML)"
+
+run_step () {
+    local name="$1"; shift
+    echo ""
+    echo "──────────────────────────────────────────────────────────────"
+    echo "  STEP: ${name}"
+    echo "  $(date)"
+    echo "──────────────────────────────────────────────────────────────"
+    python "$@" --config "${CONFIG_MODULE}"
+    local status=$?
+    if [ ${status} -ne 0 ]; then
+        echo "  >>> ${name} FAILED (exit ${status}). Continuing to next step."
+    else
+        echo "  >>> ${name} OK"
+    fi
+}
+
+# ── Pipeline ────────────────────────────────────────────────────────────────
+run_step "1b. Merge Li buried"     li_buried_sweep_cfg.py --merge
+run_step "2. Reaction tracking"    reaction_tracking_cfg.py
+run_step "3. Anode consumption"    anode_consumption_cfg.py
+run_step "4. Activation barriers"  activation_barrier_cfg.py
+run_step "5. CE & capacity"        ce_capacity_cfg.py
+run_step "6. Porosity profiles"    porosity_profiles_cfg.py
+run_step "7. SEI chemistry (full range)"  sei_chemistry_figure_cfg.py
+# Second SEI-chemistry figure zoomed to reference (1e-3) -> highest (2.5e-2)
+run_step "7b. SEI chemistry (ref->high)"  sei_chemistry_figure_cfg.py --kp-min 1e-3 --suffix _ref_to_high
+run_step "8. Comparison figures"   make_comparison_figures_cfg.py
+
+# ── PBB follow-up (June meeting comments) ───────────────────────────────────
+# 9. Rank which properties respond most to k_p across the full 40-case sweep
+#    (must run AFTER steps 1b-6 so all *_ML_features.csv exist).
+# 10. Focused low / intermediate k_p analysis for the top-responding property
+#     (answers "what happens below 56.25?" and "what about intermediate values?").
+run_step "9. k_p sensitivity rank" kp_sensitivity_ranking_cfg.py
+run_step "10. k_p focused regimes" kp_focused_regimes_cfg.py
+
+echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "  MASTER PLATING ANALYSIS COMPLETE"
+echo "  Finished: $(date)"
+echo "  Results in: ${OUT_DIR}"
+echo "════════════════════════════════════════════════════════════════"
+ls -lh "${OUT_DIR}"

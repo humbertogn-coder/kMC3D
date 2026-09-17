@@ -1,0 +1,34 @@
+# ---- simulation outputs (never versioned; they live on /scratch or locally) ----
+runs/
+out_test/
+val_out/
+*.xyz
+*.vasp
+*.npz
+*.npz.json
+Data2Excel.txt
+kmc_info_log.txt
+cycle_stats.csv
+# ---- SLURM logs ----
+*.out
+*.err
+# ---- python ----
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+# ---- guard: the confidential C++ reference engine must never enter this repo ----
+Original_kMC/
+*.cpp
+*.h
+*.o
+Makefile
+# ---- OS / editors ----
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+# ---- keep the minimal examples ----
+!examples/**
+slurm_logs/
+cases/fullcell_shuttle_test/

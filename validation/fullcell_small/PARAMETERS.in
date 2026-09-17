@@ -1,0 +1,27 @@
+# VALIDATION CASE (tiny full cell): byte-identity reference for engine changes. Not physical.
+seed 8597
+temperature 298
+saltMolar 1.2
+solvMolar 6.5
+scanIntervalType time
+potentialType step
+scanInterval 3600
+maxInterval 30
+BeginV 4.4
+EndV 2.8
+totalSteps 100000
+maxCycles 6
+printStepFreq 1
+XYZprintFreq 50
+snapshotEveryCycles 0
+checkpointEveryCycles 0
+globalA 0.5
+numberDecompositionRxns 25
+nMobilityReactions 3
+# ---- Li-S coupling (new) ---------------------------------------------------
+li_pool_mode shared
+li_pool_init -1
+reservoir_sites 500
+# anode bulk foil: -1 = unlimited (framework Li accounted, not capped);
+# set N >= 0 to model a finite Li excess (effective N/P ratio)
+li_bulk_init -1

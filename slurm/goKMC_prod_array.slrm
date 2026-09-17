@@ -1,0 +1,61 @@
+#!/bin/bash
+#SBATCH --job-name=kmc3d_shuttle
+#SBATCH --time=24:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8G
+#SBATCH --array=0-4
+#SBATCH --output=slurm_logs/kmc3d_shuttle.%A_%a.out
+#SBATCH --error=slurm_logs/kmc3d_shuttle.%A_%a.err
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=humbertogn@tamu.edu
+# ---------------------------------------------------------------------------
+# PRODUCTION run of the Li-S shuttle case, multi-seed ensemble.
+# Each array task runs ONE seed in its own folder, single core: parallelism
+# is across seeds, never inside a run.
+#
+# Submit from the repository root (the folder that contains kmc3d/):
+#     cd /scratch/user/humbertogn/kmc3d
+#     mkdir -p slurm_logs
+#     sbatch slurm/goKMC_prod_array.slrm
+#
+# Cost per seed: ~13 to 14 h with maxInterval 400. With maxInterval 1000 raise
+# --time to 48:00:00. checkpointEveryCycles 20 allows resuming: resubmit the
+# same array and every task restarts from its checkpoint.
+# ---------------------------------------------------------------------------
+module purge
+module load GCCcore/13.2.0
+module load Python/3.11.5
+source /scratch/user/humbertogn/ase_env/bin/activate
+
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export PYTHONDONTWRITEBYTECODE=1
+
+python -c "import sys, numpy; print(sys.version.split()[0], '| numpy', numpy.__version__)"
+
+BASE="$SLURM_SUBMIT_DIR"          # repository root
+cd "$BASE"
+
+CASE="cases/fullcell_shuttle"
+BASE_SEED=8597
+SEED=$(( BASE_SEED + SLURM_ARRAY_TASK_ID ))
+RUNDIR="$CASE/runs/seed_${SEED}"
+mkdir -p "$RUNDIR"
+
+# Inputs are copied and the seed is set ONLY on a fresh start. On resume
+# (checkpoint present) the inputs are left untouched.
+if [ -f "$RUNDIR/checkpoint.npz" ]; then
+    echo "seed $SEED: resuming from checkpoint"
+    RESTART="--restart $RUNDIR/checkpoint.npz"
+else
+    echo "seed $SEED: fresh start"
+    cp "$CASE"/*.in "$RUNDIR/"
+    sed -i "s/^seed .*/seed ${SEED}/" "$RUNDIR/PARAMETERS.in"
+    RESTART=""
+fi
+
+python -m kmc3d.run --dir "$RUNDIR" --out "$RUNDIR" $RESTART
+
+echo "kmc3d seed ${SEED} done at $(date)"

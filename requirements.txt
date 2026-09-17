@@ -1,0 +1,7 @@
+# pip equivalent of environment.yml (used on GRACE inside ase_env)
+numpy
+scipy
+pandas
+matplotlib
+scikit-learn
+shap

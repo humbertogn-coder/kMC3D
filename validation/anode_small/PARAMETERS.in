@@ -1,0 +1,22 @@
+# VALIDATION CASE (tiny anode-only, legacy path): must stay byte-identical after any engine change.
+seed 8597
+temperature 298
+saltMolar 1.2
+solvMolar 6.5
+scanIntervalType time
+potentialType step
+scanInterval 3600
+maxInterval 30
+BeginV 4.4
+EndV 2.8
+totalSteps 100000
+maxCycles 6
+printStepFreq 1
+XYZprintFreq 50
+snapshotEveryCycles 0
+checkpointEveryCycles 0
+globalA 0.5
+numberDecompositionRxns 6
+nMobilityReactions 3
+# ---- Li-S coupling (new) ---------------------------------------------------
+li_pool_mode fixed

@@ -1,0 +1,18 @@
+# Changelog (engine changes, each validated byte-identical on validation/)
+
+## 2026-09-17
+- Cathode Li2S passivation restored (GEOMETRY.in: cathode_passivating_species,
+  cathode_passivation_nmin). Gates only Li-transfer reactions. New column
+  n_cathode_blocked. anode_small and fullcell_small byte-identical with the
+  keywords absent.
+- validation/ created: tiny reference cases + reference md5 + README.
+- Repository layout: cases/, slurm/, docs/, examples/, postprocess/.
+- Cleanup: __pycache__, SLURM logs, superseded test outputs removed.
+
+## 2026-09-04 (milestone 1, before this repository)
+- Shared Li+ pool (li_pool_mode shared), Li foil reservoir (li_bulk_init),
+  li_total conservation column.
+- Well-mixed polysulfide reservoir and shuttle keywords (REGION anode_surface,
+  TRIGGER EMPTY, REQUIRE, RATE_SCALE, DISSOLVE, PRECIP, RES, STRIP_LI0, DEPOSIT).
+- Static cathode accessibility mask (cathode_access_fraction).
+- CE_mod and CE_shuttle metrics.

@@ -1,0 +1,12 @@
+name: kmc3d
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - shap
+  - pip

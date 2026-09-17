@@ -1,0 +1,17 @@
+# Centred cell: cathode | electrolyte | ANODE (centre) | electrolyte | cathode
+# cathode_center 0.0 -> the S8 slab wraps both z faces (periodic band)
+latticeConstant 4.0
+nx 10
+ny 10
+nz 30
+anode_center 0.5
+anode_thickness_A 20.2
+anode_thickness_is_fraction false
+anode_species Li
+cathode_enabled true
+cathode_species S8
+cathode_center 0.0
+cathode_thickness 0.12
+cathode_charge 0
+cathode_access_fraction 1.0
+write_poscar false

@@ -1,0 +1,15 @@
+# DECOMPOSITION.in - anode-only validation case (6 reactions, base-case 1E-4 values)
+# format: <NAME> <nChannels> then per channel: sigma k0 Ea alpha E0
+# ---- anode -----------------------------------------------------------------
+Plating 1
+1 1E-4 0.000 0.0 -3.04
+PlatingSEI 1
+1 1E-4 0.000 0.0 -3.04
+FSI 1
+1 1E-4 0.000 0.0 -3.04
+SFO 1
+1 1E-6 0.000 0.0 -3.04
+SOL 1
+1 2E-6 0.000 0.0 -3.04
+SOL2 1
+1 1E10 0.364 0.0 -3.04
