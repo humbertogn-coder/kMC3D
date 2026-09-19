@@ -32,3 +32,4 @@ Thumbs.db
 !examples/**
 slurm_logs/
 cases/fullcell_shuttle_test/
+validation/_tmp_cei_case/

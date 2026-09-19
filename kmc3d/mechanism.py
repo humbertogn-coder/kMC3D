@@ -203,6 +203,11 @@ class Mechanism:
                     # S_LOSS <n>: n sulfur atoms leave the active inventory
                     # (sequestered in the CEI). Keeps the S balance closed.
                     cur.channels[cur_ch].append(("S_LOSS", "S", 0, int(parts[1])))
+                elif kw == "LI_LOSS":
+                    # LI_LOSS <n>: n Li trapped in the CEI film (reporting
+                    # counter li_cei; li_total is unaffected because that Li
+                    # is already booked as consumed at the cathode).
+                    cur.channels[cur_ch].append(("LI_LOSS", "Li", 0, int(parts[1])))
                 elif kw in ("PACK_OC", "PACK_BA"):
                     spc = parts[1]; q = int(parts[2]); n = int(parts[3])
                     cur.channels[cur_ch].append((kw, spc, q, n))

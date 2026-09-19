@@ -103,6 +103,7 @@ class CycleLedger:
         # ---- cathode electrolyte interphase (opt-in: CEI keyword) -----------
         if getattr(eng, "cei_active", False):
             row["s_cei"] = int(getattr(eng, "s_cei", 0))
+            row["li_cei"] = int(getattr(eng, "li_cei", 0))
             occ1 = eng.occ == 1
             ceiM = occ1 & np.isin(eng.spc, eng.cei_code_arr)
             row["n_CEI"] = int(ceiM.sum())

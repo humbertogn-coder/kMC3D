@@ -24,57 +24,89 @@ TO-OBTAIN (needed, not yet available offline).
 
 ## FSI anion vs polysulfides (the CEI-relevant chemistry)
 
-- Soria-Fernandez, A.; Castillo, J.; Cid, R.; Song, Z.; Wu, H.; Carriazo, D.;
-  Armand, M.; Zhang, H.; Santiago, A. Beyond the Hype: Decoding
+- [SF26] Soria-Fernandez, A.; Castillo, J.; Cid, R.; Song, Z.; Wu, H.;
+  Carriazo, D.; Armand, M.; Zhang, H.; Santiago, A. Beyond the Hype: Decoding
   Bis(fluorosulfonyl)imide Chemistry in Advanced Lithium-Sulfur Batteries.
-  Small Methods 2026, DOI 10.1002/smtd.202502084. VERIFIED (abstract):
-  raising the LiFSI fraction (LiFSI/LiTFSI localized high-concentration
-  electrolytes) improves conductivity and Li-metal compatibility but "reduces
-  sulfur utilization through side reactions with long-chain polysulfides";
-  0.2 M LiFSI co-salt found optimal. This is the key qualitative statement:
-  FSI- is consumed by long-chain Li2Sx (x = 6, 8), i.e. a chemical (not
-  electrochemical) CEI-forming path that also removes active sulfur.
-  TO-OBTAIN full text: product identification (LiF, Li2SO4/LiSO2F,
-  thiosulfate/polythionate, S-N species), whether the loss scales with
-  [Li2Sx] and [FSI], any rate or extent numbers.
-- Reference list of that review (Crossref) includes, among others:
-  10.1021/ja412807w, 10.1039/C4CC06666A, 10.1021/jp408037e,
-  10.1002/adfm.201505074, 10.1021/acsenergylett.6b00194,
-  10.1021/acsami.1c09492, 10.1021/acsami.3c10977, 10.1021/acsami.3c14048,
-  10.1016/j.ensm.2024.103501, 10.1002/aenm.202302378. TO-RESOLVE titles.
+  Small Methods 2026, DOI 10.1002/smtd.202502084. VERIFIED (full text).
+  System: LiFSI/LiTFSI localized high-concentration electrolytes in
+  sulfolane/TTE, E/S 7 uL/mg, C/10. Findings used here:
+  * "FSI- anions undergo reductive decomposition upon interacting with LiPS,
+    consuming both salt and active material while producing electronically
+    insulating compounds that passivate the cathode surface"; driver is "the
+    lability of the S-F bonds". Chemical path, no electrode electron transfer
+    needed (VOLTAGE any in MECHANISM.in).
+  * Products on the cycled cathode (XPS S 2p, Fig. 3c-d): sulfite/thiosulfate
+    (SO3, 167 eV) and sulfate, plus LiF (F 1s, Fig. S13). Atomic % on the
+    pure-LiFSI cathode: SO4 ~15, SO3 ~44, LixSy ~13, Li2Sx ~16; on LiTFSI:
+    ~10, ~5, ~29, ~37. Long-chain signal depleted where the film grows.
+  * Chain-length selectivity: with SPAN cathodes (only Li2S2 to Li2S4) the
+    LiFSI cell is stable, so short-chain polysulfides do not drive the
+    reaction. Hence cei reactions only for Li2S8_d and Li2S6_d.
+  * Solvation dependence: in sparingly solvating, anion-rich environments the
+    anion LUMO is lowered and FSI- is "more susceptible to reduction by
+    long-chain polysulfides".
+  * Magnitude (Fig. 3a): pure LiFSI cell drops from ~1050 to ~150 mAh/g
+    within ~8 cycles at C/10; 0.2 M LiFSI co-salt still beneficial.
+    This is the calibration target for k0 of cei_FSI_Li2Sx (TODO).
+  * Anode side: sulfite/thiosulfate also found on the Li metal (Fig. S15),
+    more with LiFSI: a possible future extension of the shuttle branch.
 
-## Fluorinated ethers vs polysulfides
+## Solvation structure of 1.2 M LiFSI / F5DEE (why [SF26] applies here)
 
-- Zu, C.; Manthiram, A. Insight into lithium-metal anodes in lithium-sulfur
-  batteries with a fluorinated ether electrolyte. J. Mater. Chem. A 2015,
-  DOI 10.1039/c5ta03195h. METADATA (TTE co-solvent). TO-OBTAIN.
-- Okuda, D. et al. Mechanism of polysulfide dissolution suppression in
-  lithium-sulfur batteries using a novel fluorinated ether electrolyte.
-  Electrochim. Acta 2026, DOI 10.1016/j.electacta.2026.149154. METADATA.
-  TO-OBTAIN.
-- Needed: evidence on whether polysulfide nucleophiles attack the C-F or
-  C-O bonds of fluorinated DEE solvents (F5DEE has CF3CH2O- and HCF2CH2O-
-  termini). Expectation from the anode network (F5DEE defluorination is
-  electron-transfer driven, negligible barrier) is that F5DEE is a minor
-  chemical CEI contributor compared with FSI at 2 to 3 V; to be confirmed.
+- [Yu22] Yu, Z. et al. Rational solvent molecule tuning for high-performance
+  lithium metal battery electrolytes. Nat. Energy 2022, 7, 94-106. VERIFIED
+  (full text). 1.2 M LiFSI/F5DEE Li+ solvates: 7.5 % SSL + 11.9 % LASP, the
+  rest (~80 %) Li-anion clusters (LAC, >= 2 anions). Weakly solvating; Li+
+  binds the -CHF2 F (1.96 A) more than -CF3 (2.04 A). No Li-S data in the
+  paper. Ref. 38 therein (Yue et al., J. Power Sources 2018, 401, 271) covers
+  partially fluorinated ethers for Li-S electrolytes: TO-OBTAIN.
+- [Tan24] Tan, S.; Kuai, D.; Yu, Z.; Perez-Beltran, S.; et al. Evolution and
+  Interplay of Lithium Metal Interphase Components. JACS 2024, 146, 11711.
+  VERIFIED (full text). LiFSI/F5DEE on Li metal: solvation shell is mostly
+  FSI-Li-F5DEE contact ion pairs; S-F cleavage has thermodynamic priority
+  over N-S when the anion is not solvent-coordinated (relevant to the S-F
+  lability invoked by [SF26]); every LICET step of LiFSI is more favourable
+  than that of F5DEE, i.e. LiFSI has faster decomposition kinetics under
+  competitive conditions; F5DEE spin density on the -CHF2 side; F5DEE on
+  Li2O: 0.364 eV barrier. No polysulfide data. Used only to rank the solvent
+  path below the anion path (cei_F5DEE_Li2S8 disabled, sigma 0).
+
+## Fluorinated ethers vs polysulfides (still open)
+
+- Zu, C.; Manthiram, A. J. Mater. Chem. A 2015, DOI 10.1039/c5ta03195h (TTE
+  co-solvent). METADATA. TO-OBTAIN.
+- Okuda, D. et al. Electrochim. Acta 2026, DOI 10.1016/j.electacta.2026.149154.
+  METADATA. TO-OBTAIN.
+- Yue, Z. et al. J. Power Sources 2018, 401, 271. METADATA. TO-OBTAIN.
+- Open question: do polysulfide dianions attack the C-F / C-O bonds of F5DEE
+  (dehydrofluorination of the -CH2CHF2 end)? Until evidence exists the solvent
+  CEI path stays disabled.
 
 ## What is NOT in this electrolyte
 
 - No DOL/DME: ring-opening polymerization of DOL by polysulfides and DME
   deprotonation do not apply.
-- No LiNO3: the LiNxOy / thiosulfate / polythionate CEI of Aurbach et al.
-  (J. Electrochem. Soc. 2009, 156, A694) does not apply unless nitrate is
-  added later (keep as an optional future block).
+- No LiNO3: the LiNxOy / thiosulfate CEI of Aurbach et al. (J. Electrochem.
+  Soc. 2009, 156, A694) does not apply unless nitrate is added later.
 
-## Proposed reaction set (to be finalized once the full texts are read)
+## Implemented reaction set (cases/fullcell_cei, 2026-09-19)
 
-    cei_FSI_Li2S8   REGION cathode_surface, TRIGGER FSI, REQUIRE Li2S8_d 1,
-                    RATE_SCALE Li2S8_d: CEI CEI_F 0 ; RES Li2S8_d -1 ;
-                    RES Li2S6_d +1 ; S_LOSS 2 (placeholder split: FSI + Li2S8 ->
-                    LiF/sulfoxy film + Li2S6, 2 S into the film)
-    cei_FSI_Li2S6   same pattern with Li2S6_d -> Li2S4_d
-    cei_F5DEE_Li2Sx optional, TRIGGER SOL, much slower (weight to be justified)
+    cei_FSI_Li2S8   REGION cathode_surface, VOLTAGE any, TRIGGER FSI,
+                    REQUIRE Li2S8_d 1, RATE_SCALE Li2S8_d
+                    channel 0 (w 1.0): CEI CEI_SOx ; RES Li2S8_d -1 ; S_LOSS 8 ; LI_LOSS 2
+                    channel 1 (w 0.0): CEI CEI_SOx ; RES Li2S8_d -1 ; RES Li2S6_d +1 ; S_LOSS 2
+    cei_FSI_Li2S6   same with Li2S6_d (-> Li2S4_d in channel 1)
+    cei_F5DEE_Li2S8 TRIGGER SOL, product CEI_org, DISABLED (sigma 0)
 
-Rates: none assigned yet. Constraint from the Small Methods review: the
-FSI side reaction must be strong enough to lower S utilization at high LiFSI
-fraction, weak enough that 0.2 M LiFSI co-salt is still beneficial.
+    Rates (DECOMPOSITION.in): k0 1.0 per FSI surface site, mean-field in
+    c_x. PLACEHOLDER: same footing as the shuttle (0.5 per Li0 surface site);
+    with ~20 FSI vs ~300 Li0 surface sites the CEI takes ~1/10 of the initial
+    long-chain consumption. Calibration target: [SF26] Fig. 3a (collapse in
+    ~8 cycles at C/10 for a pure-LiFSI cell) once the S8-unit cascade exists.
+    Passivation: cathode_passivating_species CEI_SOx,CEI_org, nmin 10 of the
+    18 to 22 electrolyte-facing neighbours (geometric placeholder).
+
+    Smoke test (6x6x24, k0 boosted to 50, 12 half-cycles): CEI events fire,
+    FSI surface salt depletes 18 -> 9, film 26 sites, li_total constant 416,
+    s_total constant apart from the known cascade leak, no crash on restart
+    path. Not a physical run.

@@ -1,0 +1,351 @@
+# ============================================================================
+# MECHANISM.in  -  Li-S full cell (base scaffold; correct rates with AIMD)
+# ============================================================================
+# ANODE side: SEI formation (same as the Li-metal base case)
+# ----------------------------------------------------------------------------
+REACTION FSI
+  SELECT SINGLE
+  CHANNEL 0
+    PLATE_LI
+    PACK_OC F   -1 1
+    PACK_OC SFO -1 1
+END
+REACTION SFO
+  SELECT RANDINT_INCLUSIVE 7
+  CHANNEL 1
+    PACK_OC SFO -1 2
+  CHANNEL 2
+    PACK_OC SFO -1 1
+    PACK_OC F   -1 1
+  CHANNEL 3
+    PACK_OC SFO -1 1
+    PACK_BA O   -2 1
+  CHANNEL 4
+    PACK_OC SFO -1 1
+    PACK_BA O   -2 1
+  CHANNEL 5
+    PACK_BA S   -2 1
+    PACK_BA N   -2 1
+  CHANNEL 6
+    PACK_OC SFO -1 1
+    PACK_BA O   -2 1
+  CHANNEL 7
+    PACK_BA S   -2 1
+    PACK_BA O   -2 1
+END
+REACTION SOL
+  SELECT SINGLE
+  CHANNEL 0
+    PACK_OC F5D -1 2
+    PACK_OC F   -1 1
+END
+REACTION SOL2
+  SELECT SINGLE
+  CHANNEL 0
+    PACK_OC F5D -1 1
+    PACK_OC F   -1 1
+END
+REACTION Plating
+  SELECT SINGLE
+  CHANNEL 0
+    PLATE_LI
+END
+REACTION PlatingSEI
+  SELECT SINGLE
+  CHANNEL 0
+    PLATE_LI
+END
+
+# ----------------------------------------------------------------------------
+# CATHODE side: stepwise S reduction (discharge, EndV) and oxidation (charge, BeginV)
+# Literature cascade: S8 -> Li2S8 -> Li2S6 -> Li2S4 -> Li2S2 -> Li2S
+#   high-V plateau ~2.3 V : S8 -> Li2S4 (soluble polysulfides)
+#   low-V  plateau ~2.1 V : Li2S4 -> Li2S (insoluble precipitation)
+# Each step is a 2-electron reduction consuming 2 Li+ (placeholder stoichiometry).
+# ----------------------------------------------------------------------------
+REACTION cat_S8_red
+  REGION cathode
+  VOLTAGE end
+  TRIGGER S8
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S8 0
+    CONSUME_LI 2
+END
+REACTION cat_Li2S8_red
+  REGION cathode
+  VOLTAGE end
+  TRIGGER Li2S8
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S6 0
+    CONSUME_LI 2
+END
+REACTION cat_Li2S6_red
+  REGION cathode
+  VOLTAGE end
+  TRIGGER Li2S6
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S4 0
+    CONSUME_LI 2
+END
+REACTION cat_Li2S4_red
+  REGION cathode
+  VOLTAGE end
+  TRIGGER Li2S4
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S2 0
+    CONSUME_LI 2
+END
+REACTION cat_Li2S2_red
+  REGION cathode
+  VOLTAGE end
+  TRIGGER Li2S2
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S 0
+    CONSUME_LI 2
+END
+# --- charge (oxidation), reverse cascade, releasing Li+ ---------------------
+REACTION cat_Li2S_ox
+  REGION cathode
+  VOLTAGE begin
+  TRIGGER Li2S
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S2 0
+    RELEASE_LI 2
+END
+REACTION cat_Li2S2_ox
+  REGION cathode
+  VOLTAGE begin
+  TRIGGER Li2S2
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S4 0
+    RELEASE_LI 2
+END
+REACTION cat_Li2S4_ox
+  REGION cathode
+  VOLTAGE begin
+  TRIGGER Li2S4
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S6 0
+    RELEASE_LI 2
+END
+REACTION cat_Li2S6_ox
+  REGION cathode
+  VOLTAGE begin
+  TRIGGER Li2S6
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT Li2S8 0
+    RELEASE_LI 2
+END
+REACTION cat_Li2S8_ox
+  REGION cathode
+  VOLTAGE begin
+  TRIGGER Li2S8
+  SELECT SINGLE
+  CHANNEL 0
+    CONVERT S8 0
+    RELEASE_LI 2
+END
+
+# ============================================================================
+# WELL-MIXED RESERVOIR + SHUTTLE (milestone 1, perfect mixing, no transport)
+# Dissolved species live in a scalar reservoir (not on lattice sites):
+#   Li2S8_d, Li2S6_d, Li2S4_d   (soluble)     Li2S2, Li2S stay on the lattice
+# Anode deposit species: Li2S2_an (insoluble, SEI-like, does not diffuse).
+# All stoichiometries below are Li- and S-balanced (checked by hand):
+#   3 Li2S8 + 2 Li -> 4 Li2S6 ; 2 Li2S6 + 2 Li -> 3 Li2S4 ; Li2S4 + 2 Li -> 2 Li2S2
+#   irreversible branch: Li2Sx + 2 Li -> Li2S(x-2) + Li2S2(anode)
+# ============================================================================
+# ---- dissolution: high-order polysulfides leave the cathode lattice --------
+REACTION cat_diss_Li2S8
+  REGION cathode
+  VOLTAGE any
+  TRIGGER Li2S8
+  SELECT SINGLE
+  CHANNEL 0
+    DISSOLVE Li2S8_d
+END
+REACTION cat_diss_Li2S6
+  REGION cathode
+  VOLTAGE any
+  TRIGGER Li2S6
+  SELECT SINGLE
+  CHANNEL 0
+    DISSOLVE Li2S6_d
+END
+REACTION cat_diss_Li2S4
+  REGION cathode
+  VOLTAGE any
+  TRIGGER Li2S4
+  SELECT SINGLE
+  CHANNEL 0
+    DISSOLVE Li2S4_d
+END
+# ---- re-precipitation onto empty cathode sites (closes the S balance) ------
+REACTION cat_prec_Li2S8
+  REGION cathode
+  VOLTAGE any
+  TRIGGER EMPTY
+  REQUIRE Li2S8_d 1
+  RATE_SCALE Li2S8_d
+  SELECT SINGLE
+  CHANNEL 0
+    PRECIP Li2S8 0
+    RES Li2S8_d -1
+END
+REACTION cat_prec_Li2S6
+  REGION cathode
+  VOLTAGE any
+  TRIGGER EMPTY
+  REQUIRE Li2S6_d 1
+  RATE_SCALE Li2S6_d
+  SELECT SINGLE
+  CHANNEL 0
+    PRECIP Li2S6 0
+    RES Li2S6_d -1
+END
+REACTION cat_prec_Li2S4
+  REGION cathode
+  VOLTAGE any
+  TRIGGER EMPTY
+  REQUIRE Li2S4_d 1
+  RATE_SCALE Li2S4_d
+  SELECT SINGLE
+  CHANNEL 0
+    PRECIP Li2S4 0
+    RES Li2S4_d -1
+END
+# ---- shuttle: dissolved polysulfide reduced by Li0 at the anode surface ----
+# channel weights = 1 - p_irrev / p_irrev  (p_irrev = 0.05 PLACEHOLDER,
+# Marinescu et al. 2018: a fraction of shuttled material is lost irreversibly)
+REACTION sh_Li2S8
+  REGION anode_surface
+  VOLTAGE any
+  TRIGGER Li
+  REQUIRE Li2S8_d 3
+  RATE_SCALE Li2S8_d
+  SELECT WEIGHTED
+  CHANNEL 0 0.95
+    RES Li2S8_d -3
+    RES Li2S6_d 4
+    STRIP_LI0 2
+  CHANNEL 1 0.05
+    RES Li2S8_d -1
+    RES Li2S6_d 1
+    STRIP_LI0 2
+    DEPOSIT Li2S2_an 0 1
+END
+REACTION sh_Li2S6
+  REGION anode_surface
+  VOLTAGE any
+  TRIGGER Li
+  REQUIRE Li2S6_d 2
+  RATE_SCALE Li2S6_d
+  SELECT WEIGHTED
+  CHANNEL 0 0.95
+    RES Li2S6_d -2
+    RES Li2S4_d 3
+    STRIP_LI0 2
+  CHANNEL 1 0.05
+    RES Li2S6_d -1
+    RES Li2S4_d 1
+    STRIP_LI0 2
+    DEPOSIT Li2S2_an 0 1
+END
+REACTION sh_Li2S4
+  REGION anode_surface
+  VOLTAGE any
+  TRIGGER Li
+  REQUIRE Li2S4_d 1
+  RATE_SCALE Li2S4_d
+  SELECT SINGLE
+  CHANNEL 0
+    RES Li2S4_d -1
+    STRIP_LI0 2
+    DEPOSIT Li2S2_an 0 2
+END
+
+# ============================================================================
+# CATHODE ELECTROLYTE INTERPHASE (CEI) for LiFSI / F5DEE  (milestone 2)
+# Literature basis: docs/CEI_LITERATURE.md
+#   [SF26] Soria-Fernandez et al., Small Methods 2026, 10.1002/smtd.202502084
+#   [Yu22] Yu et al., Nat. Energy 2022, 7, 94
+#   [Tan24] Tan et al., J. Am. Chem. Soc. 2024, 146, 11711
+# Chemistry [SF26]: the FSI anion is reductively decomposed by LONG-CHAIN
+# polysulfides (Li2S6, Li2S8) at the cathode side, with no electrode electron
+# transfer (chemical, VOLTAGE any): S-F lability -> LiF + sulfite/thiosulfate/
+# sulfate film, electronically insulating, consuming both salt and active S.
+# Short-chain Li2S2/Li2S4 do not react appreciably (SPAN control in [SF26]),
+# so there is NO cei reaction for Li2S4_d. 1.2 M LiFSI/F5DEE is weakly
+# solvating with ~80 % Li-anion aggregates [Yu22], the regime in which [SF26]
+# finds the FSI-polysulfide reaction most pronounced.
+# Lattice representation: an FSI salt site next to cathode material (REGION
+# cathode_surface) becomes the inert film species CEI_SOx; one dissolved
+# long-chain unit is removed from the reservoir, its S and Li are booked as
+# sequestered (S_LOSS, LI_LOSS). Full consumption of the polysulfide unit is
+# the default channel (XPS in [SF26] shows long-chain depletion together with
+# sulfite/thiosulfate growth, Fig. 3d). Channel 1 (weight 0 = off) is the
+# chain-shortening alternative (2 S to the film, Li2S(x-2) back to solution)
+# kept for sensitivity studies; the split is NOT resolved by the literature.
+# ============================================================================
+REACTION cei_FSI_Li2S8
+  REGION cathode_surface
+  VOLTAGE any
+  TRIGGER FSI
+  REQUIRE Li2S8_d 1
+  RATE_SCALE Li2S8_d
+  SELECT WEIGHTED
+  CHANNEL 0 1.0
+    CEI CEI_SOx 0
+    RES Li2S8_d -1
+    S_LOSS 8
+    LI_LOSS 2
+  CHANNEL 1 0.0
+    CEI CEI_SOx 0
+    RES Li2S8_d -1
+    RES Li2S6_d 1
+    S_LOSS 2
+END
+REACTION cei_FSI_Li2S6
+  REGION cathode_surface
+  VOLTAGE any
+  TRIGGER FSI
+  REQUIRE Li2S6_d 1
+  RATE_SCALE Li2S6_d
+  SELECT WEIGHTED
+  CHANNEL 0 1.0
+    CEI CEI_SOx 0
+    RES Li2S6_d -1
+    S_LOSS 6
+    LI_LOSS 2
+  CHANNEL 1 0.0
+    CEI CEI_SOx 0
+    RES Li2S6_d -1
+    RES Li2S4_d 1
+    S_LOSS 2
+END
+# F5DEE solvent vs polysulfides: no direct evidence available. [Tan24] finds
+# LiFSI decomposes faster than F5DEE under competitive (Li metal) conditions,
+# so the solvent path is expected to be minor at 2 to 3 V. Kept as an OPTIONAL
+# reaction, DISABLED in DECOMPOSITION.in (sigma 0) until evidence exists.
+REACTION cei_F5DEE_Li2S8
+  REGION cathode_surface
+  VOLTAGE any
+  TRIGGER SOL
+  REQUIRE Li2S8_d 1
+  RATE_SCALE Li2S8_d
+  SELECT SINGLE
+  CHANNEL 0
+    CEI CEI_org 0
+    RES Li2S8_d -1
+    RES Li2S6_d 1
+    S_LOSS 2
+END

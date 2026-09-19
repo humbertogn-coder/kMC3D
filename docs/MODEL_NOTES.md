@@ -54,6 +54,7 @@ MECHANISM.in keywords
                               inert film species <spc> (excluded from the anode
                               SEI class; may be listed as passivating)
     S_LOSS <n>                n S atoms sequestered in the CEI (enters s_total)
+    LI_LOSS <n>               n Li trapped in the CEI (li_cei column, reporting)
 
 Dissolved species (reservoir only, never on the lattice): Li2S8_d, Li2S6_d,
 Li2S4_d. Insoluble on the lattice: Li2S2, Li2S (cathode), Li2S2_an (anode deposit).
@@ -138,7 +139,10 @@ legacy columns; new ones are appended by name.
 
 1. REQUIRE uses the max over channels (sh_Li2S8 demands 3 even though the
    irreversible channel uses 1): small bias toward the reversible channel at low N_dis.
-2. No CEI yet (electrolyte decomposition at the cathode).
+2. CEI: only the FSI + long-chain polysulfide chemical path is modelled
+   (cases/fullcell_cei). Solvent (F5DEE) path disabled for lack of evidence;
+   no electrochemical oxidation of the electrolyte (outside the 1.7 to 2.8 V
+   window of ethers). Rates are placeholders (docs/CEI_LITERATURE.md).
 3. Accessibility only as a static mask; passivation is mean field by neighbour
    count, no electronic percolation.
 4. SULFUR BALANCE (found 2026-09-18 with the new s_total column): the

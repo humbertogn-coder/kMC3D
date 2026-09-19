@@ -1,5 +1,12 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-19
+- CEI reactions for LiFSI/F5DEE in the new case cases/fullcell_cei
+  (fullcell_shuttle + FSI reduced by long-chain polysulfides + film
+  passivation). Literature basis in docs/CEI_LITERATURE.md (Small Methods
+  2026, Nat. Energy 2022, JACS 2024). New MECHANISM op LI_LOSS and ledger
+  column li_cei. Both validation cases byte-identical.
+
 ## 2026-09-18
 - CEI infrastructure: REGION cathode_surface, MECHANISM ops CEI and S_LOSS,
   ledger columns s_total (S conservation, whenever the reservoir is active),

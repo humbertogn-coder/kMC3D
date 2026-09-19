@@ -173,6 +173,7 @@ class Engine:
         self.cei_code_arr = np.array(sorted(_cei), dtype=self.spc.dtype)
         self.cei_active = bool(_cei)
         self.s_cei = 0            # S atoms sequestered in the CEI (S_LOSS)
+        self.li_cei = 0           # Li trapped in the CEI (LI_LOSS, reporting)
         self.li_consumed = 0      # Li+ consumed by cathode reduction (bookkeeping)
         self.li_released = 0      # Li+ released by cathode oxidation (bookkeeping)
         # ---- shared Li+ pool (li_pool_mode shared) + well-mixed reservoir ----
@@ -482,6 +483,8 @@ class Engine:
                 self.occ[site] = 1; self.spc[site] = code; self.chg[site] = q
             elif op == "S_LOSS":
                 self.s_cei += count
+            elif op == "LI_LOSS":
+                self.li_cei += count
             elif op == "STRIP_LI0":
                 self._strip_li0(site, count)
             elif op == "DEPOSIT":
@@ -1290,7 +1293,7 @@ class Engine:
                      "li_consumed", "li_released",
                      "li_pool", "li_pool0", "li_shuttled", "li_deposit",
                      "li_plated_pool", "reservoir_sites",
-                     "li_bulk", "li_bulk_drawn", "li_bulk_returned", "s_cei")
+                     "li_bulk", "li_bulk_drawn", "li_bulk_returned", "s_cei", "li_cei")
 
     def save_checkpoint(self, path: str = ""):
         import json

@@ -1,0 +1,26 @@
+# Centred cell: cathode | electrolyte | ANODE (centre) | electrolyte | cathode
+# cathode_center 0.0 -> the S8 slab wraps both z faces (periodic band)
+latticeConstant 4.0
+nx 10
+ny 10
+nz 30
+anode_center 0.5
+anode_thickness_A 20.2
+anode_thickness_is_fraction false
+anode_species Li
+cathode_enabled true
+cathode_species S8
+cathode_center 0.0
+cathode_thickness 0.12
+cathode_charge 0
+cathode_access_fraction 1.0
+write_poscar false
+# ---- dynamic passivation by the CEI film (milestone 2) ---------------------
+# [SF26]: the sulfite/thiosulfate/LiF film is electronically insulating and
+# passivates the cathode. Film sites occupy the electrolyte (OC/BA) shell of a
+# cathode site, which holds 18 to 22 of its 26 neighbours. nmin 10 = a cathode
+# site is blocked once about half of its electrolyte-facing shell is film
+# (geometric threshold, PLACEHOLDER; no literature value exists for a lattice
+# criterion). Li2S/Li2S2 are added after the S8-unit cascade rework.
+cathode_passivating_species CEI_SOx,CEI_org
+cathode_passivation_nmin 10
