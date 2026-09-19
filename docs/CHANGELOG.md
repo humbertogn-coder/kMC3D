@@ -1,6 +1,10 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
 ## 2026-09-19
+- cases/fullcell_cei switched to the S8-unit lattice model of the cathode
+  (S8, Li2S8, Li4S8, Li8S8, Li16S8; dissolution and precipitation rewritten
+  exact in Li and S; Li2S6_d precipitates by disproportionation). Input files
+  only, no engine change. Acceptance: s_total constant with everything on.
 - CEI reactions for LiFSI/F5DEE in the new case cases/fullcell_cei
   (fullcell_shuttle + FSI reduced by long-chain polysulfides + film
   passivation). Literature basis in docs/CEI_LITERATURE.md (Small Methods

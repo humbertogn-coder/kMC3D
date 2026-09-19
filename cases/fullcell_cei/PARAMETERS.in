@@ -18,7 +18,7 @@ XYZprintFreq 500
 snapshotEveryCycles 20
 checkpointEveryCycles 20
 globalA 0.5
-numberDecompositionRxns 28
+numberDecompositionRxns 25
 nMobilityReactions 3
 # ---- Li-S coupling (new) ---------------------------------------------------
 li_pool_mode shared

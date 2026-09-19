@@ -1,4 +1,4 @@
-# DECOMPOSITION.in - Li-S full cell kinetics (25 reactions)
+# DECOMPOSITION.in - Li-S full cell + CEI kinetics (25 reactions, S8-unit cascade)
 # anode SEI (1E-4 base-case values) + cathode conversions (PLACEHOLDERS for AIMD)
 # format: <NAME> <nChannels> then per channel: sigma k0 Ea alpha E0
 # ---- anode -----------------------------------------------------------------
@@ -14,45 +14,39 @@ SOL 1
 1 2E-6 0.000 0.0 -3.04
 SOL2 1
 1 1E10 0.364 0.0 -3.04
-# ---- cathode reduction (discharge) : PLACEHOLDER rates ---------------------
-# high-V plateau (faster): S8 -> Li2S8 -> Li2S6 -> Li2S4
+# ---- cathode reduction (discharge), S8-unit cascade : PLACEHOLDER rates ---
+# high plateau (faster): S8 -> Li2S8 -> Li4S8 ; low plateau (slower,
+# kinetically limiting, insoluble): Li4S8 -> Li8S8 -> Li16S8
 cat_S8_red 1
 1 0.10 0.000 0.0 0.0
 cat_Li2S8_red 1
-1 0.08 0.000 0.0 0.0
-cat_Li2S6_red 1
 1 0.06 0.000 0.0 0.0
-cat_Li2S4_red 1
+cat_Li4S8_red 1
 1 0.04 0.000 0.0 0.0
-# low-V plateau (slower, kinetically limiting): Li2S2 -> Li2S
-cat_Li2S2_red 1
+cat_Li8S8_red 1
 1 0.02 0.000 0.0 0.0
-# ---- cathode oxidation (charge) : PLACEHOLDER rates ------------------------
-cat_Li2S_ox 1
+# ---- cathode oxidation (charge) : PLACEHOLDER rates (mirror of discharge) --
+cat_Li16S8_ox 1
 1 0.02 0.000 0.0 0.0
-cat_Li2S2_ox 1
+cat_Li8S8_ox 1
 1 0.04 0.000 0.0 0.0
-cat_Li2S4_ox 1
+cat_Li4S8_ox 1
 1 0.06 0.000 0.0 0.0
-cat_Li2S6_ox 1
-1 0.08 0.000 0.0 0.0
 cat_Li2S8_ox 1
 1 0.10 0.000 0.0 0.0
 # ---- polysulfide dissolution (cathode, any V) : PLACEHOLDER ---------------
-# per-site k0 [1/s]; hierarchy Li2S8 ~ Li2S6 > Li2S4 (Li2S4 marginally soluble;
-# Li2S2/Li2S insoluble -> no dissolution channel). Rauh 1977 / Mikhaylik 2004:
-# S as Li2Sx exceeds 10 M in ethers, so high-order dissolution is fast.
+# per-site k0 [1/s]; Li2S8 > Li4S8 (Li2S4 marginally soluble); Li8S8/Li16S8
+# insoluble -> no dissolution channel. Rauh 1977 / Mikhaylik 2004: S as Li2Sx
+# exceeds 10 M in ethers, so high-order dissolution is fast.
 cat_diss_Li2S8 1
 1 0.05 0.000 0.0 0.0
-cat_diss_Li2S6 1
-1 0.05 0.000 0.0 0.0
-cat_diss_Li2S4 1
+cat_diss_Li4S8 1
 1 0.02 0.000 0.0 0.0
 # ---- re-precipitation on empty cathode sites (any V) : PLACEHOLDER --------
 # rate per empty site = k0 * c_x, c_x = N_dis[x]/reservoir_sites (mean field).
 # k_diss/k_prec sets the dissolved fraction at steady state (calibrate ratio,
 # not each value). Marinescu et al. JES 165 (2018) A6107: precipitation
-# constant k_p.
+# constant k_p. cat_prec_Li2S6 is the 2 Li2S6 -> Li2S8 + Li2S4 disproportionation.
 cat_prec_Li2S8 1
 1 5.0 0.000 0.0 0.0
 cat_prec_Li2S6 1

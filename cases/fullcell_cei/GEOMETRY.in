@@ -21,6 +21,7 @@ write_poscar false
 # cathode site, which holds 18 to 22 of its 26 neighbours. nmin 10 = a cathode
 # site is blocked once about half of its electrolyte-facing shell is film
 # (geometric threshold, PLACEHOLDER; no literature value exists for a lattice
-# criterion). Li2S/Li2S2 are added after the S8-unit cascade rework.
-cathode_passivating_species CEI_SOx,CEI_org
+# criterion). Li16S8 (= Li2S, wide-gap insulator) and Li8S8 (= Li2S2) block as in the
+# original point 3; the CEI film species block per [SF26].
+cathode_passivating_species Li16S8,Li8S8,CEI_SOx,CEI_org
 cathode_passivation_nmin 10

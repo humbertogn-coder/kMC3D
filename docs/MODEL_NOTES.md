@@ -135,6 +135,25 @@ species are not sites and do not appear). POSCAR snapshots for Zeo++/RASPA over
 the SEI z-slice (Li2S2_an is part of the skeleton). cycle_stats.csv keeps the
 legacy columns; new ones are appended by name.
 
+## 9. S8-unit lattice model of the cathode (cases/fullcell_cei, 2026-09-19)
+
+Every cathode lattice site holds one S8 unit; the label is its lithiation
+state. Post-processing must map labels to conventional formulas:
+
+    lattice label   formula equivalent   Li per site   soluble
+    S8              S8                    0            no
+    Li2S8           Li2S8                 2            yes -> 1 Li2S8_d
+    Li4S8           2 Li2S4               4            yes -> 2 Li2S4_d
+    Li8S8           4 Li2S2               8            no  (passivating)
+    Li16S8          8 Li2S               16            no  (passivating)
+
+Cascade: 2 + 2 + 4 + 8 = 16 Li+ per S8 (theoretical 1672 mAh/g). Li2S6 is
+not a lattice state (non-integer Li per S8); Li2S6_d exists in solution only,
+from the shuttle (3 Li2S8 + 2 Li -> 4 Li2S6). Precipitation of Li2S6_d goes
+through the disproportionation 2 Li2S6_d -> Li2S8(site) + Li2S4_d, exact in
+Li and S. Known simplification: no direct Li2S6 dissolution from the cathode.
+Rates remain placeholders (0.10/0.06/0.04/0.02 discharge, mirrored on charge).
+
 ## 8. Known limits (next increments)
 
 1. REQUIRE uses the max over channels (sh_Li2S8 demands 3 even though the
@@ -145,14 +164,12 @@ legacy columns; new ones are appended by name.
    window of ethers). Rates are placeholders (docs/CEI_LITERATURE.md).
 3. Accessibility only as a static mask; passivation is mean field by neighbour
    count, no electronic percolation.
-4. SULFUR BALANCE (found 2026-09-18 with the new s_total column): the
-   single-site cathode cascade is not S-conservative. CONVERT Li2S8 -> Li2S6
-   relabels one site and drops 2 S atoms (likewise 6 -> 4 -> 2 -> 1). The
-   reservoir/shuttle part IS balanced. Options under evaluation: (1) treat each
-   cathode site as an S8 unit with lithiation states (S8, Li2S8, Li4S8, Li8S8,
-   Li16S8; 2+2+4+8 = 16 Li per S8, the theoretical capacity), (2) multi-site
-   stoichiometric conversions, (3) document as a site-based cascade and use
-   s_total only as a diagnostic. Decision pending.
+4. SULFUR BALANCE. The legacy single-site cascade of cases/fullcell_shuttle
+   (Li2S8 -> Li2S6 -> Li2S4 -> Li2S2 -> Li2S by relabelling one site) is NOT
+   S-conservative: each step drops S atoms (s_total drifts). It is kept only as
+   the milestone-1 legacy/validation case. Since 2026-09-19 the reference case
+   cases/fullcell_cei uses the S8-UNIT LATTICE MODEL (section 9), which
+   conserves S by construction; s_total must be constant there.
 5. Engine speed ~0.5 s per event regardless of box size: the cost is in the
    per-candidate Python loops, not in the lattice. Optimization pending.
 5. (fixed 2026-09-18) cycle_stats.csv is flushed at every checkpoint and on

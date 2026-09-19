@@ -57,11 +57,17 @@ REACTION PlatingSEI
 END
 
 # ----------------------------------------------------------------------------
-# CATHODE side: stepwise S reduction (discharge, EndV) and oxidation (charge, BeginV)
-# Literature cascade: S8 -> Li2S8 -> Li2S6 -> Li2S4 -> Li2S2 -> Li2S
-#   high-V plateau ~2.3 V : S8 -> Li2S4 (soluble polysulfides)
-#   low-V  plateau ~2.1 V : Li2S4 -> Li2S (insoluble precipitation)
-# Each step is a 2-electron reduction consuming 2 Li+ (placeholder stoichiometry).
+# CATHODE side, S8-UNIT LATTICE MODEL (milestone 2, sulfur-conservative)
+# Every cathode lattice site holds ONE S8 unit at all times; the species label
+# is its lithiation state:  S8 (0 Li) -> Li2S8 (2) -> Li4S8 (4, = 2 Li2S4)
+# -> Li8S8 (8, = 4 Li2S2) -> Li16S8 (16, = 8 Li2S).  16 Li+ per S8 = the
+# theoretical capacity (1672 mAh/g). Sulfur is conserved by construction
+# (s_total in cycle_stats.csv must stay constant). The Li2S6 state is not a
+# lattice species (2.67 Li per S8 is not integer); Li2S6 exists only in
+# solution (Li2S6_d), produced by the shuttle or by disproportionation.
+# Discharge (VOLTAGE end): high plateau ~2.3 V S8 -> Li2S8 -> Li4S8 (soluble
+# range), low plateau ~2.1 V Li4S8 -> Li8S8 -> Li16S8 (insoluble). Charge is
+# the exact reverse. Rates are PLACEHOLDERS (DECOMPOSITION.in).
 # ----------------------------------------------------------------------------
 REACTION cat_S8_red
   REGION cathode
@@ -78,68 +84,50 @@ REACTION cat_Li2S8_red
   TRIGGER Li2S8
   SELECT SINGLE
   CHANNEL 0
-    CONVERT Li2S6 0
+    CONVERT Li4S8 0
     CONSUME_LI 2
 END
-REACTION cat_Li2S6_red
+REACTION cat_Li4S8_red
   REGION cathode
   VOLTAGE end
-  TRIGGER Li2S6
+  TRIGGER Li4S8
   SELECT SINGLE
   CHANNEL 0
-    CONVERT Li2S4 0
-    CONSUME_LI 2
+    CONVERT Li8S8 0
+    CONSUME_LI 4
 END
-REACTION cat_Li2S4_red
+REACTION cat_Li8S8_red
   REGION cathode
   VOLTAGE end
-  TRIGGER Li2S4
+  TRIGGER Li8S8
   SELECT SINGLE
   CHANNEL 0
-    CONVERT Li2S2 0
-    CONSUME_LI 2
-END
-REACTION cat_Li2S2_red
-  REGION cathode
-  VOLTAGE end
-  TRIGGER Li2S2
-  SELECT SINGLE
-  CHANNEL 0
-    CONVERT Li2S 0
-    CONSUME_LI 2
+    CONVERT Li16S8 0
+    CONSUME_LI 8
 END
 # --- charge (oxidation), reverse cascade, releasing Li+ ---------------------
-REACTION cat_Li2S_ox
+REACTION cat_Li16S8_ox
   REGION cathode
   VOLTAGE begin
-  TRIGGER Li2S
+  TRIGGER Li16S8
   SELECT SINGLE
   CHANNEL 0
-    CONVERT Li2S2 0
-    RELEASE_LI 2
+    CONVERT Li8S8 0
+    RELEASE_LI 8
 END
-REACTION cat_Li2S2_ox
+REACTION cat_Li8S8_ox
   REGION cathode
   VOLTAGE begin
-  TRIGGER Li2S2
+  TRIGGER Li8S8
   SELECT SINGLE
   CHANNEL 0
-    CONVERT Li2S4 0
-    RELEASE_LI 2
+    CONVERT Li4S8 0
+    RELEASE_LI 4
 END
-REACTION cat_Li2S4_ox
+REACTION cat_Li4S8_ox
   REGION cathode
   VOLTAGE begin
-  TRIGGER Li2S4
-  SELECT SINGLE
-  CHANNEL 0
-    CONVERT Li2S6 0
-    RELEASE_LI 2
-END
-REACTION cat_Li2S6_ox
-  REGION cathode
-  VOLTAGE begin
-  TRIGGER Li2S6
+  TRIGGER Li4S8
   SELECT SINGLE
   CHANNEL 0
     CONVERT Li2S8 0
@@ -156,15 +144,20 @@ REACTION cat_Li2S8_ox
 END
 
 # ============================================================================
-# WELL-MIXED RESERVOIR + SHUTTLE (milestone 1, perfect mixing, no transport)
+# WELL-MIXED RESERVOIR + SHUTTLE (perfect mixing, no transport)
 # Dissolved species live in a scalar reservoir (not on lattice sites):
-#   Li2S8_d, Li2S6_d, Li2S4_d   (soluble)     Li2S2, Li2S stay on the lattice
+#   Li2S8_d, Li2S6_d, Li2S4_d (soluble).  Li8S8, Li16S8 stay on the lattice.
 # Anode deposit species: Li2S2_an (insoluble, SEI-like, does not diffuse).
-# All stoichiometries below are Li- and S-balanced (checked by hand):
-#   3 Li2S8 + 2 Li -> 4 Li2S6 ; 2 Li2S6 + 2 Li -> 3 Li2S4 ; Li2S4 + 2 Li -> 2 Li2S2
-#   irreversible branch: Li2Sx + 2 Li -> Li2S(x-2) + Li2S2(anode)
+# Every stoichiometry below is exact in Li and S:
+#   dissolution   Li2S8(site) -> Li2S8_d ;  Li4S8(site) -> 2 Li2S4_d
+#   precipitation Li2S8_d -> Li2S8(site) ;  2 Li2S4_d -> Li4S8(site)
+#                 2 Li2S6_d -> Li2S8(site) + Li2S4_d   (disproportionation,
+#                 Li2S6 <-> Li2S8 + Li2S4 solution equilibrium)
+#   shuttle       3 Li2S8 + 2 Li -> 4 Li2S6 ; 2 Li2S6 + 2 Li -> 3 Li2S4 ;
+#                 Li2S4 + 2 Li -> 2 Li2S2(an) ; irreversible branch
+#                 Li2Sx + 2 Li -> Li2S(x-2) + Li2S2(an)
 # ============================================================================
-# ---- dissolution: high-order polysulfides leave the cathode lattice --------
+# ---- dissolution: soluble lithiation states leave the cathode lattice ------
 REACTION cat_diss_Li2S8
   REGION cathode
   VOLTAGE any
@@ -173,23 +166,16 @@ REACTION cat_diss_Li2S8
   CHANNEL 0
     DISSOLVE Li2S8_d
 END
-REACTION cat_diss_Li2S6
+REACTION cat_diss_Li4S8
   REGION cathode
   VOLTAGE any
-  TRIGGER Li2S6
-  SELECT SINGLE
-  CHANNEL 0
-    DISSOLVE Li2S6_d
-END
-REACTION cat_diss_Li2S4
-  REGION cathode
-  VOLTAGE any
-  TRIGGER Li2S4
+  TRIGGER Li4S8
   SELECT SINGLE
   CHANNEL 0
     DISSOLVE Li2S4_d
+    RES Li2S4_d 1
 END
-# ---- re-precipitation onto empty cathode sites (closes the S balance) ------
+# ---- re-precipitation onto empty cathode sites -----------------------------
 REACTION cat_prec_Li2S8
   REGION cathode
   VOLTAGE any
@@ -205,23 +191,24 @@ REACTION cat_prec_Li2S6
   REGION cathode
   VOLTAGE any
   TRIGGER EMPTY
-  REQUIRE Li2S6_d 1
+  REQUIRE Li2S6_d 2
   RATE_SCALE Li2S6_d
   SELECT SINGLE
   CHANNEL 0
-    PRECIP Li2S6 0
-    RES Li2S6_d -1
+    PRECIP Li2S8 0
+    RES Li2S6_d -2
+    RES Li2S4_d 1
 END
 REACTION cat_prec_Li2S4
   REGION cathode
   VOLTAGE any
   TRIGGER EMPTY
-  REQUIRE Li2S4_d 1
+  REQUIRE Li2S4_d 2
   RATE_SCALE Li2S4_d
   SELECT SINGLE
   CHANNEL 0
-    PRECIP Li2S4 0
-    RES Li2S4_d -1
+    PRECIP Li4S8 0
+    RES Li2S4_d -2
 END
 # ---- shuttle: dissolved polysulfide reduced by Li0 at the anode surface ----
 # channel weights = 1 - p_irrev / p_irrev  (p_irrev = 0.05 PLACEHOLDER,
