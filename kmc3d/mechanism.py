@@ -69,7 +69,8 @@ class Reaction:
     select_n: int = 0                 # N for RANDINT_INCLUSIVE
     channels: Dict[int, List[Action]] = field(default_factory=dict)
     # --- cathode / region-aware extensions (default = legacy anode behaviour) --
-    region: str = "any"               # any | anode | cathode  (z-band restriction)
+    region: str = "any"               # any | anode | cathode | anode_surface |
+                                      #   cathode_surface (electrolyte next to cathode)
     weights: Dict[int, float] = field(default_factory=dict)   # SELECT WEIGHTED
     voltage: str = "any"              # any | begin | end       (half-cycle restriction)
     trigger: str = ""                 # species that triggers a CONVERSION reaction;
@@ -189,6 +190,19 @@ class Mechanism:
                     # at the Li surface (passivating deposit on the anode)
                     spc = parts[1]; q = int(parts[2]); n = int(parts[3])
                     cur.channels[cur_ch].append(("DEPOSIT", spc, q, n))
+                # ---- cathode electrolyte interphase (CEI) keywords -----------
+                elif kw == "CEI":
+                    # CEI <spc> [<q>]: convert the trigger electrolyte site (an
+                    # OC/BA site next to cathode material) into the inert film
+                    # species <spc>. Film species are excluded from the anode
+                    # SEI class (no Li framework growth around them) and can be
+                    # listed in cathode_passivating_species.
+                    spc = parts[1]; q = int(parts[2]) if len(parts) > 2 else 0
+                    cur.channels[cur_ch].append(("CEI", spc, q, 1))
+                elif kw == "S_LOSS":
+                    # S_LOSS <n>: n sulfur atoms leave the active inventory
+                    # (sequestered in the CEI). Keeps the S balance closed.
+                    cur.channels[cur_ch].append(("S_LOSS", "S", 0, int(parts[1])))
                 elif kw in ("PACK_OC", "PACK_BA"):
                     spc = parts[1]; q = int(parts[2]); n = int(parts[3])
                     cur.channels[cur_ch].append((kw, spc, q, n))

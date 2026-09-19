@@ -1,6 +1,13 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
 ## 2026-09-18
+- CEI infrastructure: REGION cathode_surface, MECHANISM ops CEI and S_LOSS,
+  ledger columns s_total (S conservation, whenever the reservoir is active),
+  s_cei, n_CEI, cei_<spc>. No CEI reactions in any case yet (rates pending
+  literature). anode_small byte-identical; fullcell_small identical except
+  the added s_total column (reference regenerated).
+- s_total exposed the non-conservative single-site cathode cascade (model
+  decision pending, MODEL_NOTES section 8).
 - cycle_stats.csv is rewritten at every checkpoint and run.py turns SIGTERM
   (SLURM time limit) into a clean interrupt, so the ledger and a final
   checkpoint survive a killed job. Restart from that checkpoint continues the

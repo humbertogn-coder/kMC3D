@@ -37,6 +37,7 @@ topological "stock" version of the buried/dead lithium descriptor.
 from __future__ import annotations
 
 import os
+import re
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -93,6 +94,22 @@ class CycleLedger:
                 cur = int(getattr(eng, key, 0))
                 row[f"d_{key}"] = cur - self._prev_extra[key]
                 self._prev_extra[key] = cur
+        # ---- sulfur balance (only when the polysulfide reservoir is active) --
+        # s_total = S on lattice cathode species + S in anode deposits
+        #         + S dissolved in the reservoir + S sequestered in the CEI.
+        # Must be CONSTANT over the run (= 8 * initial S8 sites).
+        if n_dis:
+            row["s_total"] = self._sulfur_total(eng, n_dis)
+        # ---- cathode electrolyte interphase (opt-in: CEI keyword) -----------
+        if getattr(eng, "cei_active", False):
+            row["s_cei"] = int(getattr(eng, "s_cei", 0))
+            occ1 = eng.occ == 1
+            ceiM = occ1 & np.isin(eng.spc, eng.cei_code_arr)
+            row["n_CEI"] = int(ceiM.sum())
+            if ceiM.any():
+                codes, counts = np.unique(eng.spc[ceiM], return_counts=True)
+                for c, n in zip(codes, counts):
+                    row[f"cei_{eng.spt.code2sym[int(c)]}"] = int(n)
         # ---- dynamic Li2S passivation of the cathode (opt-in, point 3) ----
         if getattr(eng, "pass_nmin", 0) > 0:
             bm = eng._passivation_mask()
@@ -124,6 +141,32 @@ class CycleLedger:
         self._half_index += 1
 
     # ------------------------------------------------------------ metrics
+    @staticmethod
+    def _s_atoms(sym: str) -> int:
+        """Sulfur atoms in a lattice/reservoir species label: S8 -> 8,
+        Li2S8 -> 8, Li2S -> 1, Li2S2_an -> 2, Li2S4_d -> 4. Labels whose S
+        is followed by another element letter (SOL, SFO) count as 0; CEI
+        film species are tracked through the S_LOSS counter instead."""
+        m = re.search(r"S(\d*)(?=_|$)", sym)
+        if not m:
+            return 0
+        return int(m.group(1)) if m.group(1) else 1
+
+    def _sulfur_total(self, eng, n_dis) -> int:
+        occ1 = eng.occ == 1
+        tot = 0
+        codes = set(int(c) for c in getattr(eng, "cath_code_arr", []))
+        codes |= set(int(c) for c in getattr(eng, "dep_code_arr", []))
+        codes -= set(int(c) for c in getattr(eng, "cei_code_arr", []))
+        for c in codes:
+            ns = self._s_atoms(eng.spt.code2sym[c])
+            if ns:
+                tot += ns * int((occ1 & (eng.spc == c)).sum())
+        for spc, n in n_dis.items():
+            tot += self._s_atoms(spc) * int(n)
+        tot += int(getattr(eng, "s_cei", 0))
+        return tot
+
     def _inventory(self, eng) -> Dict:
         occ1 = eng.occ == 1
         spc = eng.spc

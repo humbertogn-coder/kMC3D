@@ -40,3 +40,14 @@ Change log of validated engine changes:
               cathode_passivation_nmin). Both cases byte-identical with the
               keywords absent; feature-on smoke test: li_total constant,
               n_cathode_blocked > 0, dissolution unaffected.
+* 2026-09-18  ledger flushed at every checkpoint + SIGTERM handling. Both cases
+              byte-identical.
+* 2026-09-18  CEI infrastructure (REGION cathode_surface, CEI, S_LOSS) and the
+              sulfur-balance column s_total (present whenever the polysulfide
+              reservoir is active). anode_small byte-identical. fullcell_small:
+              Data2Excel.txt and all .xyz byte-identical; cycle_stats.csv gains
+              the s_total column with every previous column unchanged, so its
+              reference md5 was regenerated on that basis. s_total revealed a
+              known S leak in the single-site cathode cascade (CONVERT
+              Li2S8 -> Li2S6 drops 2 S): 1440 -> 1438 in the tiny case. Model
+              decision pending (see docs/MODEL_NOTES.md, section 8).

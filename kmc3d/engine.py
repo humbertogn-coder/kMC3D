@@ -159,12 +159,20 @@ class Engine:
         # because of them. Empty for any mechanism without DEPOSIT -> legacy
         # masks are untouched.
         _dep = set()
+        _cei = set()
         for r in mech.reactions.values():
             for ch in r.channels.values():
                 for (op, sname, _q, _n) in ch:
                     if op == "DEPOSIT":
                         _dep.add(self.spt.add(sname))
+                    elif op == "CEI":
+                        # CEI film species: same inert treatment as deposits
+                        _dep.add(self.spt.add(sname))
+                        _cei.add(self.spt.add(sname))
         self.dep_code_arr = np.array(sorted(_dep), dtype=self.spc.dtype)
+        self.cei_code_arr = np.array(sorted(_cei), dtype=self.spc.dtype)
+        self.cei_active = bool(_cei)
+        self.s_cei = 0            # S atoms sequestered in the CEI (S_LOSS)
         self.li_consumed = 0      # Li+ consumed by cathode reduction (bookkeeping)
         self.li_released = 0      # Li+ released by cathode oxidation (bookkeeping)
         # ---- shared Li+ pool (li_pool_mode shared) + well-mixed reservoir ----
@@ -469,6 +477,11 @@ class Engine:
             elif op == "PRECIP" and site is not None:
                 code = self.spt.add(spc)
                 self.occ[site] = 1; self.spc[site] = code; self.chg[site] = q
+            elif op == "CEI" and site is not None:
+                code = self.spt.add(spc)
+                self.occ[site] = 1; self.spc[site] = code; self.chg[site] = q
+            elif op == "S_LOSS":
+                self.s_cei += count
             elif op == "STRIP_LI0":
                 self._strip_li0(site, count)
             elif op == "DEPOSIT":
@@ -881,7 +894,26 @@ class Engine:
             # the live Li surface wherever it is (the anode grows past its
             # initial band): same criterion as LiStripping candidates
             return self._surface_li0_mask()
+        if region == "cathode_surface":
+            return self._cathode_surface_mask()
         return np.zeros(self.N, dtype=bool)
+
+    def _cathode_surface_mask(self):
+        """Electrolyte sites (ETH / SOL / FSI on OC or BA sites) with at least
+        one neighbour occupied by cathode material (S8, Li2Sx on the lattice).
+        This is where the cathode electrolyte interphase (CEI) forms. Dynamic:
+        follows the cathode as it converts, dissolves and re-precipitates.
+        CEI film species are NOT cathode material, so a film site does not by
+        itself extend the surface (the film grows only next to active
+        cathode sites)."""
+        if not self.cath_code_arr.size:
+            return np.zeros(self.N, dtype=bool)
+        occ1 = self.occ == 1
+        cathM = occ1 & np.isin(self.spc, self.cath_code_arr)
+        n_cath = self._count(self.eg4, cathM)
+        elec = occ1 & ((self.spc == self.cETH) | (self.spc == self.cSOL)
+                       | (self.spc == self.cFSI))
+        return elec & (n_cath >= 1)
 
     def sei_step(self):
         """One reaction event chosen by BKL across decomposition/plating/
@@ -1258,7 +1290,7 @@ class Engine:
                      "li_consumed", "li_released",
                      "li_pool", "li_pool0", "li_shuttled", "li_deposit",
                      "li_plated_pool", "reservoir_sites",
-                     "li_bulk", "li_bulk_drawn", "li_bulk_returned")
+                     "li_bulk", "li_bulk_drawn", "li_bulk_returned", "s_cei")
 
     def save_checkpoint(self, path: str = ""):
         import json

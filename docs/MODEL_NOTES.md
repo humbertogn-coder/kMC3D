@@ -48,6 +48,12 @@ MECHANISM.in keywords
     DEPOSIT <spc> <q> <n>     places n insoluble <spc> on BA sites of the anode
                               surface (SEI class, does not diffuse)
     CONVERT / CONSUME_LI / RELEASE_LI  cathode cascade with Li+ transfer
+    REGION cathode_surface    electrolyte sites (ETH/SOL/FSI on OC/BA) with at
+                              least one neighbour of cathode material (CEI zone)
+    CEI <spc> [q]             converts the trigger electrolyte site into the
+                              inert film species <spc> (excluded from the anode
+                              SEI class; may be listed as passivating)
+    S_LOSS <n>                n S atoms sequestered in the CEI (enters s_total)
 
 Dissolved species (reservoir only, never on the lattice): Li2S8_d, Li2S6_d,
 Li2S4_d. Insoluble on the lattice: Li2S2, Li2S (cathode), Li2S2_an (anode deposit).
@@ -103,6 +109,11 @@ activates it.
     d_li_deposit        Li2S2_an sites deposited
     sei_Li2S2_an        anode deposit inventory
     n_cathode_blocked   electronically blocked cathode sites (passivation)
+    s_total             SULFUR CONSERVATION CHECK = S on lattice cathode
+                        species + S in anode deposits + S in the reservoir
+                        + s_cei. Must be constant (= 8 * initial S8 sites).
+    s_cei, n_CEI,       S sequestered in the CEI, CEI film sites, per-species
+    cei_<spc>           CEI inventory (only when a CEI reaction exists)
 
 CE definitions (always present):
 
@@ -130,7 +141,15 @@ legacy columns; new ones are appended by name.
 2. No CEI yet (electrolyte decomposition at the cathode).
 3. Accessibility only as a static mask; passivation is mean field by neighbour
    count, no electronic percolation.
-4. Engine speed ~0.5 s per event regardless of box size: the cost is in the
+4. SULFUR BALANCE (found 2026-09-18 with the new s_total column): the
+   single-site cathode cascade is not S-conservative. CONVERT Li2S8 -> Li2S6
+   relabels one site and drops 2 S atoms (likewise 6 -> 4 -> 2 -> 1). The
+   reservoir/shuttle part IS balanced. Options under evaluation: (1) treat each
+   cathode site as an S8 unit with lithiation states (S8, Li2S8, Li4S8, Li8S8,
+   Li16S8; 2+2+4+8 = 16 Li per S8, the theoretical capacity), (2) multi-site
+   stoichiometric conversions, (3) document as a site-based cascade and use
+   s_total only as a diagnostic. Decision pending.
+5. Engine speed ~0.5 s per event regardless of box size: the cost is in the
    per-candidate Python loops, not in the lattice. Optimization pending.
 5. (fixed 2026-09-18) cycle_stats.csv is flushed at every checkpoint and on
    SIGTERM, so a SLURM time-limit kill no longer loses it.
