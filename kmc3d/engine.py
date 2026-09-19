@@ -1215,6 +1215,11 @@ class Engine:
                 if (ckpt_every and self.cycleNumber != last_ckpt_cycle
                         and self.cycleNumber % ckpt_every == 0):
                     self.save_checkpoint()
+                    # flush the ledger with every checkpoint: a SLURM
+                    # time-limit kill must not lose cycle_stats.csv. The file
+                    # is rewritten in full each time (idempotent), so the final
+                    # write at the end of the run is byte-identical to before.
+                    self.ledger.finalize(self.out.root)
                     last_ckpt_cycle = self.cycleNumber
         finally:
             # always flush the ledger + a final checkpoint, even on interrupt

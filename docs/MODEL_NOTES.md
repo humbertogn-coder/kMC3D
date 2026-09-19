@@ -132,5 +132,5 @@ legacy columns; new ones are appended by name.
    count, no electronic percolation.
 4. Engine speed ~0.5 s per event regardless of box size: the cost is in the
    per-candidate Python loops, not in the lattice. Optimization pending.
-5. cycle_stats.csv is written only at the end of the run; a SLURM time-limit
-   kill loses it. Planned: flush the ledger at every checkpoint.
+5. (fixed 2026-09-18) cycle_stats.csv is flushed at every checkpoint and on
+   SIGTERM, so a SLURM time-limit kill no longer loses it.

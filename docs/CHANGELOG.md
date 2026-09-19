@@ -1,5 +1,11 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-18
+- cycle_stats.csv is rewritten at every checkpoint and run.py turns SIGTERM
+  (SLURM time limit) into a clean interrupt, so the ledger and a final
+  checkpoint survive a killed job. Restart from that checkpoint continues the
+  ledger without gaps. Both validation cases byte-identical.
+
 ## 2026-09-17
 - Cathode Li2S passivation restored (GEOMETRY.in: cathode_passivating_species,
   cathode_passivation_nmin). Gates only Li-transfer reactions. New column

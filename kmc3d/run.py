@@ -97,8 +97,18 @@ def main(argv=None):
     eng, out = build_engine(args.dir, args.out, args.params, args.geom,
                             args.decomp, args.mob, args.mech)
     t0 = time.time()
+    # SLURM sends SIGTERM before killing a job at its time limit. Turn it into
+    # an exception so Engine.run() reaches its finally block (ledger flush and
+    # final checkpoint) instead of dying silently.
+    import signal
+
+    def _on_sigterm(signum, frame):
+        raise KeyboardInterrupt("SIGTERM received (SLURM time limit?)")
+    signal.signal(signal.SIGTERM, _on_sigterm)
     try:
         eng.run(restart=args.restart)
+    except KeyboardInterrupt as exc:
+        out.log(f"Interrupted: {exc}. Ledger and checkpoint were flushed.")
     finally:
         out.log(f"wall_time_s={time.time() - t0:.2f}")
         out.close()
