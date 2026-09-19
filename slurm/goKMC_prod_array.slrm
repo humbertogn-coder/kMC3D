@@ -17,7 +17,10 @@
 # Submit from the repository root (the folder that contains kmc3d/):
 #     cd /scratch/user/humbertogn/kmc3d
 #     mkdir -p slurm_logs
-#     sbatch slurm/goKMC_prod_array.slrm
+#     sbatch slurm/goKMC_prod_array.slrm                          # default case
+#     sbatch --export=ALL,CASE=cases/fullcell_cei slurm/goKMC_prod_array.slrm
+# CASE selects the input deck (default cases/fullcell_shuttle); BASE_SEED the
+# first seed (default 8597); each array task adds its index to it.
 #
 # Cost per seed: ~13 to 14 h with maxInterval 400. With maxInterval 1000 raise
 # --time to 48:00:00. checkpointEveryCycles 20 allows resuming: resubmit the
@@ -38,8 +41,9 @@ python -c "import sys, numpy; print(sys.version.split()[0], '| numpy', numpy.__v
 BASE="$SLURM_SUBMIT_DIR"          # repository root
 cd "$BASE"
 
-CASE="cases/fullcell_shuttle"
-BASE_SEED=8597
+CASE="${CASE:-cases/fullcell_shuttle}"
+BASE_SEED="${BASE_SEED:-8597}"
+echo "case=$CASE  base_seed=$BASE_SEED"
 SEED=$(( BASE_SEED + SLURM_ARRAY_TASK_ID ))
 RUNDIR="$CASE/runs/seed_${SEED}"
 mkdir -p "$RUNDIR"
