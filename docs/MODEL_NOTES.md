@@ -115,6 +115,8 @@ activates it.
                         + s_cei. Must be constant (= 8 * initial S8 sites).
     s_cei, n_CEI,       S sequestered in the CEI, CEI film sites, per-species
     cei_<spc>           CEI inventory (only when a CEI reaction exists)
+    deposit_unplaced    DEPOSIT sites that found no eligible BA site (audit;
+                        must stay 0, otherwise s_total drifts)
 
 CE definitions (always present):
 
@@ -155,6 +157,14 @@ Li and S. Known simplification: no direct Li2S6 dissolution from the cathode.
 Rates remain placeholders (0.10/0.06/0.04/0.02 discharge, mirrored on charge).
 
 ## 8. Known limits (next increments)
+
+0. First fullcell_cei production run (2026-09-20, placeholder rates): the
+   shuttle consumes ~90 % of the S8 sites over 160 half-cycles, ~73 % of all
+   sulfur ends as Li2S2_an on the anode, re-precipitation rarely fires, the
+   surface FSI salt is exhausted (CEI self-limits) and the anode framework
+   draws ~15x its initial Li from the foil (li_bulk about -15000; li_total is
+   conserved). All of this is the calibration problem, not a bug: k_sh vs
+   k_prec vs reservoir_sites must be set so that the cathode survives.
 
 1. REQUIRE uses the max over channels (sh_Li2S8 demands 3 even though the
    irreversible channel uses 1): small bias toward the reversible channel at low N_dis.

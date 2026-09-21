@@ -51,3 +51,9 @@ Change log of validated engine changes:
               known S leak in the single-site cathode cascade (CONVERT
               Li2S8 -> Li2S6 drops 2 S): 1440 -> 1438 in the tiny case. Model
               decision pending (see docs/MODEL_NOTES.md, section 8).
+* 2026-09-20  deposit-room gate for shuttle reactions (S conservation fix).
+              anode_small byte-identical; fullcell_small identical except the
+              new deposit_unplaced column (reference regenerated). Stress test
+              6x6x24, shuttle rates x20, 61 half-cycles: s_total constant.
+              Unit test: with _deposit_eligible_count forced to 0 the shuttle
+              never fires while dissolved polysulfides accumulate.

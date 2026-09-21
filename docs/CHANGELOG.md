@@ -1,5 +1,20 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-20
+- Sulfur leak fixed: a shuttle reaction with DEPOSIT is a candidate only when
+  enough eligible BA surface sites exist (the Li surface saturated with
+  Li2S2_an is passivated toward the shuttle). Found with s_total in the
+  fullcell_cei production run (seeds 8597/8599/8601, after half-cycle ~120):
+  deposits that found no room silently dropped their S. Audit counter and
+  column deposit_unplaced (must stay 0). anode_small byte-identical;
+  fullcell_small identical except the new column.
+- First production results of fullcell_cei (5 seeds, 140 to 180 half-cycles,
+  killed at the 24 h limit; cycle_stats.csv survived thanks to the checkpoint
+  flush). li_total constant. Placeholder rates let the shuttle consume ~90 %
+  of the cathode (700 -> 42 to 59 S8 sites; ~73 % of S as Li2S2_an on the
+  anode); surface FSI exhausted, CEI 120 to 186 sites. Calibration target
+  defined: the cathode must not vanish.
+
 ## 2026-09-19
 - cases/fullcell_cei switched to the S8-unit lattice model of the cathode
   (S8, Li2S8, Li4S8, Li8S8, Li16S8; dissolution and precipitation rewritten

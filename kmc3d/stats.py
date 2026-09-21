@@ -100,6 +100,7 @@ class CycleLedger:
         # Must be CONSTANT over the run (= 8 * initial S8 sites).
         if n_dis:
             row["s_total"] = self._sulfur_total(eng, n_dis)
+            row["deposit_unplaced"] = int(getattr(eng, "deposit_unplaced", 0))
         # ---- cathode electrolyte interphase (opt-in: CEI keyword) -----------
         if getattr(eng, "cei_active", False):
             row["s_cei"] = int(getattr(eng, "s_cei", 0))

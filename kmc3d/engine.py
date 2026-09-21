@@ -174,6 +174,7 @@ class Engine:
         self.cei_active = bool(_cei)
         self.s_cei = 0            # S atoms sequestered in the CEI (S_LOSS)
         self.li_cei = 0           # Li trapped in the CEI (LI_LOSS, reporting)
+        self.deposit_unplaced = 0 # DEPOSIT sites that found no room (audit)
         self.li_consumed = 0      # Li+ consumed by cathode reduction (bookkeeping)
         self.li_released = 0      # Li+ released by cathode oxidation (bookkeeping)
         # ---- shared Li+ pool (li_pool_mode shared) + well-mixed reservoir ----
@@ -213,11 +214,21 @@ class Engine:
                 for ch in r.channels.values() for (op, _s, _q, _n) in ch)
         # per-reaction Li+ requirement (max CONSUME_LI over channels) for gating
         self._li_need = {}
+        # per-reaction deposit requirement (max DEPOSIT count over channels):
+        # a shuttle reaction is a candidate only if that many eligible BA
+        # surface sites exist, otherwise the deposit could not be placed and
+        # its sulfur would vanish (found with s_total, 2026-09-20). Physically:
+        # a Li surface saturated with Li2S2 is passivated toward the shuttle.
+        self._dep_need = {}
         for r in self.conv_rxns:
             need = 0
             for ch in r.channels.values():
                 need = max(need, sum(n for (op, _s, _q, n) in ch if op == "CONSUME_LI"))
             self._li_need[r.name] = need
+            dneed = 0
+            for ch in r.channels.values():
+                dneed = max(dneed, sum(n for (op, _s, _q, n) in ch if op == "DEPOSIT"))
+            self._dep_need[r.name] = dneed
         self.LiMetal = self.LiIon = self.LiMetalS = self.LiIonS = 0
         self.nO = self.nF = 0
 
@@ -488,7 +499,14 @@ class Engine:
             elif op == "STRIP_LI0":
                 self._strip_li0(site, count)
             elif op == "DEPOSIT":
-                self.li_deposit += self.packBA_count(spc, q, count)
+                placed = self.packBA_count(spc, q, count)
+                self.li_deposit += placed
+                if placed < count:
+                    # should not happen after the candidate gate; keep the
+                    # balance auditable rather than silent
+                    self.deposit_unplaced += count - placed
+                    self.out.log(f"WARNING: DEPOSIT {spc} placed {placed}/{count} "
+                                 f"at step {self.currentStep}; S balance affected")
 
     def _surface_li0_mask(self):
         """Li0 sites exposed to electrolyte (same criterion as LiStripping)."""
@@ -512,6 +530,13 @@ class Engine:
             self._empty_one(i); removed += 1
         self.li_shuttled += removed
         return removed
+
+    def _deposit_eligible_count(self):
+        """Number of BA sites where packBA_count could place a deposit now
+        (same criterion as packBA_count; counts are refreshed by sei_step)."""
+        elig = (self.occ != 1) & self.lat.is_BAsite() & (self.nETH >= 1) \
+            & (self.nOC_SEI == 0) & (self.nLi >= 2)
+        return int(elig.sum())
 
     def packBA_count(self, sym, charge, n):
         """packBA that reports how many sites were actually placed."""
@@ -1019,6 +1044,7 @@ class Engine:
 
         # --- cathode / conversion / reservoir reactions (region + voltage) ---
         blockedM = None   # passivation mask, evaluated at most once per step
+        n_dep_room = None # eligible deposit sites, evaluated at most once per step
         for r in self.conv_rxns:
             if r.voltage == "begin" and not atBegin:
                 continue
@@ -1030,6 +1056,14 @@ class Engine:
             # shared pool: a reaction needing n Li+ is ineligible below n
             if self.pool_shared and self.li_pool < self._li_need.get(r.name, 0):
                 continue
+            # deposit room: a reaction placing n DEPOSIT sites is ineligible
+            # when fewer than n eligible BA surface sites exist (S conservation)
+            dneed = self._dep_need.get(r.name, 0)
+            if dneed > 0:
+                if n_dep_room is None:
+                    n_dep_room = self._deposit_eligible_count()
+                if n_dep_room < dneed:
+                    continue
             sr = self._decomp_sumrate(r.name)
             if sr <= 0:
                 continue
@@ -1293,7 +1327,8 @@ class Engine:
                      "li_consumed", "li_released",
                      "li_pool", "li_pool0", "li_shuttled", "li_deposit",
                      "li_plated_pool", "reservoir_sites",
-                     "li_bulk", "li_bulk_drawn", "li_bulk_returned", "s_cei", "li_cei")
+                     "li_bulk", "li_bulk_drawn", "li_bulk_returned", "s_cei", "li_cei",
+                     "deposit_unplaced")
 
     def save_checkpoint(self, path: str = ""):
         import json
