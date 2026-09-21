@@ -175,6 +175,14 @@ class Engine:
         self.s_cei = 0            # S atoms sequestered in the CEI (S_LOSS)
         self.li_cei = 0           # Li trapped in the CEI (LI_LOSS, reporting)
         self.deposit_unplaced = 0 # DEPOSIT sites that found no room (audit)
+        # ---- structural brakes (opt-in) ----
+        self.li_pool_max = int(getattr(params, "li_pool_max", -1))
+        if str(getattr(params, "li_pool_mode", "fixed")).lower() != "shared":
+            self.li_pool_max = -1          # meaningless without a pool
+        self.stop_elec_frac = float(getattr(params, "stop_electrolyte_fraction", 0.0))
+        self.n_elec0 = 0                   # electrolyte sites at t=0
+        self.dried_out = False
+        self.pool_full_blocks = 0          # audit: candidate sets pruned by the cap
         self.li_consumed = 0      # Li+ consumed by cathode reduction (bookkeeping)
         self.li_released = 0      # Li+ released by cathode oxidation (bookkeeping)
         # ---- shared Li+ pool (li_pool_mode shared) + well-mixed reservoir ----
@@ -220,6 +228,7 @@ class Engine:
         # its sulfur would vanish (found with s_total, 2026-09-20). Physically:
         # a Li surface saturated with Li2S2 is passivated toward the shuttle.
         self._dep_need = {}
+        self._li_release = {}
         for r in self.conv_rxns:
             need = 0
             for ch in r.channels.values():
@@ -229,6 +238,9 @@ class Engine:
             for ch in r.channels.values():
                 dneed = max(dneed, sum(n for (op, _s, _q, n) in ch if op == "DEPOSIT"))
             self._dep_need[r.name] = dneed
+            self._li_release[r.name] = max(
+                (sum(n for (op, _s, _q, n) in ch if op == "RELEASE_LI")
+                 for ch in r.channels.values()), default=0)
         self.LiMetal = self.LiIon = self.LiMetalS = self.LiIonS = 0
         self.nO = self.nF = 0
 
@@ -530,6 +542,15 @@ class Engine:
             self._empty_one(i); removed += 1
         self.li_shuttled += removed
         return removed
+
+    def _pool_full(self):
+        """True when the shared Li+ pool is at its cap (li_pool_max)."""
+        return self.li_pool_max > 0 and self.li_pool >= self.li_pool_max
+
+    def _electrolyte_count(self):
+        occ1 = self.occ == 1
+        return int((occ1 & ((self.spc == self.cETH) | (self.spc == self.cSOL)
+                            | (self.spc == self.cFSI))).sum())
 
     def _deposit_eligible_count(self):
         """Number of BA sites where packBA_count could place a deposit now
@@ -1017,6 +1038,11 @@ class Engine:
             eact = self._eact_all()
             strip = self.mob.params.get("LiStripping", {}).get("Li")
             surf = self.mob.params.get("LiSurface", {}).get("Li")
+            # li_pool_max: a full pool cannot accept more Li+ -> no stripping
+            # (surface diffusion is unaffected). Legacy path when cap is off.
+            if self._pool_full() and strip:
+                strip = None
+                self.pool_full_blocks += 1
             cand_li = np.where(li0 & (self.nLi <= 4) & (self.nETH >= 1))[0]
             for i in cand_li:
                 if strip and strip["sigma"] != 0:
@@ -1055,6 +1081,9 @@ class Engine:
                 continue
             # shared pool: a reaction needing n Li+ is ineligible below n
             if self.pool_shared and self.li_pool < self._li_need.get(r.name, 0):
+                continue
+            # li_pool_max: a reaction releasing Li+ is ineligible at the cap
+            if self._li_release.get(r.name, 0) > 0 and self._pool_full():
                 continue
             # deposit room: a reaction placing n DEPOSIT sites is ineligible
             # when fewer than n eligible BA surface sites exist (S conservation)
@@ -1277,10 +1306,21 @@ class Engine:
             self._write_xyz()                  # frame 0
         ckpt_every = int(getattr(self.p, "checkpointEveryCycles", 0))
         last_ckpt_cycle = self.cycleNumber
+        last_stop_check = self.cycleNumber
         try:
             while (self.currentStep <= self.p.totalSteps
                    and self.cycleNumber <= self.p.maxCycles):
                 self.step()
+                if self.stop_elec_frac > 0 and self.cycleNumber != last_stop_check:
+                    # evaluated once per half-cycle flip
+                    last_stop_check = self.cycleNumber
+                    n_el = self._electrolyte_count()
+                    if n_el < self.stop_elec_frac * self.n_elec0:
+                        self.dried_out = True
+                        self.out.log(f"Cell dried out: {n_el} electrolyte sites "
+                                     f"(< {self.stop_elec_frac:.2f} of {self.n_elec0}) "
+                                     f"at half-cycle {self.cycleNumber}. Stopping.")
+                        break
                 if (ckpt_every and self.cycleNumber != last_ckpt_cycle
                         and self.cycleNumber % ckpt_every == 0):
                     self.save_checkpoint()
@@ -1319,6 +1359,14 @@ class Engine:
         if self.pass_nmin > 0:
             self.out.log(f"cathode_passivation: species={','.join(self.pass_species)}  "
                          f"nmin={self.pass_nmin} (Li-transfer reactions gated)")
+        if self.li_pool_max > 0:
+            self.out.log(f"li_pool_max={self.li_pool_max}: stripping and RELEASE_LI "
+                         f"gated when the pool is full")
+        if self.stop_elec_frac > 0:
+            self.n_elec0 = self._electrolyte_count()
+            self.out.log(f"stop_electrolyte_fraction={self.stop_elec_frac}: run stops "
+                         f"below {int(self.stop_elec_frac * self.n_elec0)} of "
+                         f"{self.n_elec0} electrolyte sites")
 
     # ------------------------------------------------------ checkpointing
     _CKPT_SCALARS = ("currentStep", "cycleNumber", "currentTime", "presentV",
@@ -1328,7 +1376,7 @@ class Engine:
                      "li_pool", "li_pool0", "li_shuttled", "li_deposit",
                      "li_plated_pool", "reservoir_sites",
                      "li_bulk", "li_bulk_drawn", "li_bulk_returned", "s_cei", "li_cei",
-                     "deposit_unplaced")
+                     "deposit_unplaced", "n_elec0", "pool_full_blocks")
 
     def save_checkpoint(self, path: str = ""):
         import json

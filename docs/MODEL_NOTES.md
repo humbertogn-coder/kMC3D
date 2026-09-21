@@ -27,6 +27,14 @@ PARAMETERS.in
                      c_x = N_dis[x] / reservoir_sites in RATE_SCALE
     li_bulk_init     -1 = unlimited Li foil (framework Li accounted, not capped);
                      N >= 0 models a finite Li excess (effective N/P ratio)
+    li_pool_max      -1 = unlimited (legacy). N > 0: stripping and cathodic
+                     oxidation are ineligible while the pool holds >= N Li+.
+                     Mean-field electroneutrality: one current for both
+                     electrodes. Suggested 2 * li_pool0. (structural brake 1)
+    stop_electrolyte_fraction  0 = off. f > 0: the run stops cleanly when
+                     ETH + SOL + FSI sites fall below f * initial ("cell dried
+                     out"), the explicit form of the original engine's natural
+                     stall. Suggested 0.05. (structural brake 2)
 GEOMETRY.in
     cathode_access_fraction      1.0 = all cathode sites convert; < 1.0 draws a
                                  static contact mask at cell creation (point 4, static)
@@ -158,6 +166,14 @@ Rates remain placeholders (0.10/0.06/0.04/0.02 discharge, mirrored on charge).
 
 ## 8. Known limits (next increments)
 
+00. ROOT CAUSE of the fast anode saturation (2026-09-20 analysis vs the
+   original half-cell run): the two electrodes were not current-coupled.
+   Stripping (k0 56 per surface Li0 site) outran cathodic reduction (k0 0.05
+   per site) by ~1000x, the shared pool grew from 74 to ~4500 Li+, and the
+   400-event half-cycles delivered ~8x more anode events per cycle than the
+   original's 50-event half-cycles (cycle 20 here ~ cycle 140 there in
+   wear). Brakes li_pool_max and stop_electrolyte_fraction address this
+   structurally; the rate calibration remains pending.
 0. First fullcell_cei production run (2026-09-20, placeholder rates): the
    shuttle consumes ~90 % of the S8 sites over 160 half-cycles, ~73 % of all
    sulfur ends as Li2S2_an on the anode, re-precipitation rarely fires, the

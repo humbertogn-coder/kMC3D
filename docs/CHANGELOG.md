@@ -1,6 +1,11 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
 ## 2026-09-20
+- Structural brakes (opt-in, PARAMETERS.in): li_pool_max (pool cap: no
+  stripping / RELEASE_LI when full; mean-field current coupling of the two
+  electrodes) and stop_electrolyte_fraction (clean stop when the cell dries
+  out). Column pool_full_blocks when the cap is active. Both validation
+  cases byte-identical.
 - Sulfur leak fixed: a shuttle reaction with DEPOSIT is a candidate only when
   enough eligible BA surface sites exist (the Li surface saturated with
   Li2S2_an is passivated toward the shuttle). Found with s_total in the

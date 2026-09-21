@@ -103,6 +103,23 @@ class Parameters:
     #                 N >= 0 = finite foil, framework growth stops at 0
     #                 (anode depletion; sets an effective N/P ratio).
     li_bulk_init: int = -1
+    #   li_pool_max   upper bound of the shared Li+ pool (shared mode only).
+    #                 -1 = unlimited (legacy). N > 0: stripping and cathodic
+    #                 oxidation (RELEASE_LI) become ineligible once the pool
+    #                 holds N Li+. Mean-field electroneutrality / salt
+    #                 solubility limit: forces the anodic current to follow the
+    #                 cathodic one (a real full cell has one current). Without
+    #                 it the pool ran away (74 -> 4500 Li+ in fullcell_cei,
+    #                 2026-09-20) and the anode aged ~8x faster per cycle.
+    #                 Suggested: 2 * li_pool0 (supersaturation margin).
+    #                 MODEL LIMITATION: a hard cap, not a Nernstian penalty.
+    li_pool_max: int = -1
+    #   stop_electrolyte_fraction  clean termination when the electrolyte sites
+    #                 (ETH + SOL + FSI) fall below this fraction of their
+    #                 initial number ("cell dried out"). 0 = off (legacy).
+    #                 Mirrors the natural stall of the original half-cell
+    #                 engine, which the full cell never reaches on its own.
+    stop_electrolyte_fraction: float = 0.0
 
     # field name -> caster
     _CAST = {
@@ -113,7 +130,8 @@ class Parameters:
         "snapshotEveryCycles": int, "checkpointEveryCycles": int,
         "globalA": float, "numberDecompositionRxns": int, "nMobilityReactions": int,
         "li_pool_mode": str, "li_pool_init": int, "reservoir_sites": int,
-        "li_bulk_init": int,
+        "li_bulk_init": int, "li_pool_max": int,
+        "stop_electrolyte_fraction": float,
     }
 
     @classmethod

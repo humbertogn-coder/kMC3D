@@ -119,6 +119,8 @@ class CycleLedger:
                 (bm & eng._region_mask("cathode") & eng.lat.is_BC()).sum())
         if getattr(eng, "pool_shared", False):
             row["li_pool"] = int(eng.li_pool)
+            if getattr(eng, "li_pool_max", -1) > 0:
+                row["pool_full_blocks"] = int(eng.pool_full_blocks)
             cur = int(getattr(eng, "li_plated_pool", 0))
             row["d_li_plated_pool"] = cur - self._prev_extra["li_plated_pool"]
             self._prev_extra["li_plated_pool"] = cur
