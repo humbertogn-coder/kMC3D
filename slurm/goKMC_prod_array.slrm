@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=kmc3d_shuttle
-#SBATCH --time=24:00:00
+#SBATCH --time=36:00:00
+#SBATCH --signal=B:USR1@300
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=8G
@@ -22,9 +23,16 @@
 # CASE selects the input deck (default cases/fullcell_shuttle); BASE_SEED the
 # first seed (default 8597); each array task adds its index to it.
 #
-# Cost per seed: ~13 to 14 h with maxInterval 400. With maxInterval 1000 raise
-# --time to 48:00:00. checkpointEveryCycles 20 allows resuming: resubmit the
-# same array and every task restarts from its checkpoint.
+# Cost per seed: 200 half-cycles x maxInterval 400 took > 24 h on GRACE
+# (killed at cycle 160 to 180), hence --time 36:00:00. With maxInterval 1000
+# raise it further (max 7 days on the medium partition). checkpointEveryCycles
+# 20 allows resuming: resubmit the same array and every task restarts from its
+# checkpoint; cycle_stats.csv is flushed at every checkpoint as well.
+#
+# Clean shutdown: SLURM delivers the time-limit signal to the batch shell, not
+# reliably to a foreground python child. --signal=B:USR1@300 sends USR1 to
+# this shell 5 min before the limit; the trap below forwards SIGTERM to python,
+# whose handler flushes the ledger and a final checkpoint (run.py).
 # ---------------------------------------------------------------------------
 module purge
 module load GCCcore/13.2.0
@@ -60,6 +68,9 @@ else
     RESTART=""
 fi
 
-python -m kmc3d.run --dir "$RUNDIR" --out "$RUNDIR" $RESTART
-
-echo "kmc3d seed ${SEED} done at $(date)"
+python -m kmc3d.run --dir "$RUNDIR" --out "$RUNDIR" $RESTART &
+PID=$!
+trap 'echo "time limit near: forwarding SIGTERM to python $PID"; kill -TERM $PID' USR1 TERM
+wait $PID
+STATUS=$?
+echo "kmc3d seed ${SEED} finished with status $STATUS at $(date)"
