@@ -1,0 +1,29 @@
+# MILESTONE 2: Li-S full cell = fullcell_shuttle + cathode electrolyte interphase
+# (FSI reduced by long-chain polysulfides, LiFSI/F5DEE) + film passivation.
+# Half cycles: 400 reaction events each (maxInterval 400). 200 half-cycles.
+seed 8600
+temperature 298
+saltMolar 1.2
+solvMolar 6.5
+scanIntervalType time
+potentialType step
+scanInterval 3600
+maxInterval 400
+BeginV 4.4
+EndV 2.8
+totalSteps 100000
+maxCycles 200
+printStepFreq 1
+XYZprintFreq 500
+snapshotEveryCycles 20
+checkpointEveryCycles 20
+globalA 0.5
+numberDecompositionRxns 25
+nMobilityReactions 3
+# ---- Li-S coupling (new) ---------------------------------------------------
+li_pool_mode shared
+li_pool_init -1
+reservoir_sites 2000
+# anode bulk foil: -1 = unlimited (framework Li accounted, not capped);
+# set N >= 0 to model a finite Li excess (effective N/P ratio)
+li_bulk_init -1
