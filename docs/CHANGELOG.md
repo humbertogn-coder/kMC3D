@@ -1,6 +1,15 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
-## 2026-09-21
+## 2026-09-21 (post-processing)
+- kmc3d/species.py: single classification of labels (metal, electrolyte,
+  cathode, deposit, cei, sei) and S8-unit label mapping; used by
+  characterize (_sei_slab_bounds = anode film only), postprocess
+  (morphology_parameters + n_cathode/n_CEI/n_deposit), ff_data (properties
+  for all full-cell labels + proxy fallback), zeopp radii and raspa.
+- kmc3d/cycles.py: per-cycle Q_dis, Q_ch, CE_cathode, capacity (mAh/g_S),
+  utilization, cathode composition in conventional formulas, conservation
+  report, multi-seed mean/std. kmc3d/figures.py: 4-panel case overview.
+  postprocess/summarize_case.py: CLI (exit 1 on conservation violation).
 - cases/fullcell_cei: shuttle k0 lowered 10x (0.05/0.05/0.02, calibration
   step 1, CE_shuttle 0.63 to 0.80 in the small-box test) and brakes enabled
   (li_pool_max 148, stop_electrolyte_fraction 0.05). Series 2 to be run on

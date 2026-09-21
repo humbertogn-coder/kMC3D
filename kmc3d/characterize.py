@@ -28,12 +28,17 @@ from .structio import read_poscar
 
 def _sei_slab_bounds(poscar_path: str,
                      metal: Tuple[str, ...] = ("Li",)) -> Optional[Tuple[float, float]]:
-    """z-range spanned by non-metal (SEI) species; None if no SEI yet."""
+    """z-range spanned by the ANODE film (SEI + anode deposits); None if no
+    film yet. Cathode material and CEI film are excluded, so in a full cell
+    (cathode wrapping both z faces) the slab stays around the anode instead
+    of spanning the whole box. Uses species.classify; `metal` kept for API
+    compatibility."""
+    from .species import is_anode_film
     s = read_poscar(poscar_path)
-    sei = ~np.isin(s.species, list(metal))
-    if not sei.any():
+    film = is_anode_film(s.species)
+    if not film.any():
         return None
-    z = s.cart[sei, 2]
+    z = s.cart[film, 2]
     return float(z.min()), float(z.max())
 
 

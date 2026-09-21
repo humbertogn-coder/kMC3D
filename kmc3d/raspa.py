@@ -25,7 +25,7 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 
 from .structio import Structure, read_poscar
-from .ff_data import SPECIES_PROPS, PROBES
+from .ff_data import SPECIES_PROPS, PROBES, props_for
 
 
 def _slab(struct: Structure, z_slab: Optional[Tuple[float, float]]) -> Structure:
@@ -63,13 +63,13 @@ def widom_insertion(poscar_path: str,
     pp = PROBES[probe]
 
     pseudo = [raspalib.PseudoAtom(name=s, framework_type=True,
-                                  mass=SPECIES_PROPS[s].mass, charge=0.0,
+                                  mass=props_for(s).mass, charge=0.0,
                                   atomic_number=6) for s in uniq]
     pseudo.append(raspalib.PseudoAtom(name=probe, framework_type=False,
                                       mass=pp["mass"], charge=pp["charge"],
                                       atomic_number=2))
-    params = [raspalib.VDWParameters(SPECIES_PROPS[s].eps_K,
-                                     SPECIES_PROPS[s].sigma_A) for s in uniq]
+    params = [raspalib.VDWParameters(props_for(s).eps_K,
+                                     props_for(s).sigma_A) for s in uniq]
     params.append(raspalib.VDWParameters(pp["eps_K"], pp["sigma_A"]))
 
     ff = raspalib.ForceField(

@@ -39,7 +39,28 @@ SPECIES_PROPS = {
     # composite fragments (proxy element noted)
     "SFO": SpeciesProp("S",  60.07,   0.0, 1.80, 137.90, 3.595),
     "F5D": SpeciesProp("F",  50.0,    0.0, 1.47,  36.48, 2.997),
+    # ---- Li-S full cell: one lattice site = one coarse-grained unit ----------
+    # Radii are SITE-FILLING placeholders (the lattice spacing is 2.0 A, so a
+    # unit occupying a site is modelled as a 2.0 A hard sphere for pore
+    # analysis); masses are the formula masses. Refine when the pore analysis
+    # of the cathode side is actually used.
+    "S8":       SpeciesProp("S", 256.5,  0.0, 2.00, 137.90, 3.595),
+    "Li2S8":    SpeciesProp("S", 270.4,  0.0, 2.00, 137.90, 3.595),
+    "Li4S8":    SpeciesProp("S", 284.3,  0.0, 2.00, 137.90, 3.595),
+    "Li8S8":    SpeciesProp("S", 312.0,  0.0, 2.00, 137.90, 3.595),
+    "Li16S8":   SpeciesProp("S", 367.6,  0.0, 2.00, 137.90, 3.595),
+    "Li2S6":    SpeciesProp("S", 206.2,  0.0, 2.00, 137.90, 3.595),
+    "Li2S4":    SpeciesProp("S", 142.1,  0.0, 2.00, 137.90, 3.595),
+    "Li2S2":    SpeciesProp("S",  78.0,  0.0, 2.00, 137.90, 3.595),
+    "Li2S":     SpeciesProp("S",  45.9,  0.0, 1.90, 137.90, 3.595),
+    "Li2S2_an": SpeciesProp("S",  78.0,  0.0, 1.90, 137.90, 3.595),
+    "CEI_SOx":  SpeciesProp("S", 110.0,  0.0, 1.90, 137.90, 3.595),  # sulfite/thiosulfate/LiF lump
+    "CEI_org":  SpeciesProp("O", 120.0,  0.0, 2.00,  30.19, 3.118),  # solvent-derived film lump
 }
+
+# proxy element for labels not listed above (never raise in a batch job)
+_PROXY_BY_PREFIX = (("Li", "Li"), ("CEI", "S"), ("S", "S"), ("F", "F"),
+                    ("O", "O"), ("N", "N"))
 
 # Common probe molecules (single-site) for Widom / pore accessibility.
 #   radius for Zeo++ accessibility; UFF eps/sigma + mass for RASPA Widom.
@@ -52,8 +73,22 @@ PROBES = {
 }
 
 
-def props_for(label: str) -> SpeciesProp:
+def props_for(label: str, strict: bool = False) -> SpeciesProp:
+    """Properties for a species label. Unknown labels fall back to the
+    element they start with (a warning is printed once per label) unless
+    strict=True, in which case KeyError is raised."""
     if label in SPECIES_PROPS:
         return SPECIES_PROPS[label]
-    raise KeyError(f"No characterisation properties for species '{label}'. "
-                   f"Add it to ff_data.SPECIES_PROPS.")
+    if strict:
+        raise KeyError(f"No characterisation properties for species '{label}'. "
+                       f"Add it to ff_data.SPECIES_PROPS.")
+    for prefix, elem in _PROXY_BY_PREFIX:
+        if label.startswith(prefix):
+            if label not in _WARNED:
+                _WARNED.add(label)
+                print(f"[ff_data] no properties for '{label}', using {elem} as proxy")
+            return SPECIES_PROPS[elem]
+    raise KeyError(f"No characterisation properties or proxy for species '{label}'.")
+
+
+_WARNED: set = set()

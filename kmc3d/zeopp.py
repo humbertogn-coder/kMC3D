@@ -30,10 +30,16 @@ def _zeopp_bin() -> Optional[str]:
     return os.environ.get("ZEOPP_BIN") or shutil.which("network")
 
 
-def write_radii_file(path: str) -> str:
-    """Write a Zeo++ radii file mapping every kMC species label to its radius."""
+def write_radii_file(path: str, labels=None) -> str:
+    """Write a Zeo++ radii file mapping every kMC species label to its radius.
+    `labels` (optional) adds the labels present in a given structure so that
+    unknown ones get their proxy radius instead of crashing Zeo++."""
+    from .ff_data import props_for
+    names = dict(SPECIES_PROPS)
+    for l in (labels or []):
+        names.setdefault(l, props_for(l))
     with open(path, "w") as fh:
-        for label, p in SPECIES_PROPS.items():
+        for label, p in names.items():
             fh.write(f"{label} {p.radius:.3f}\n")
     return path
 
@@ -96,7 +102,8 @@ def zeopp_descriptors(poscar_path: str,
     work = tempfile.mkdtemp(prefix="zeopp_")
     try:
         cssr = write_cssr(struct, os.path.join(work, "snap.cssr"))
-        rad = write_radii_file(os.path.join(work, "kmc.rad"))
+        rad = write_radii_file(os.path.join(work, "kmc.rad"),
+                               labels=set(struct.species.tolist()))
         base = os.path.join(work, "snap")
 
         def run(args, out_ext):

@@ -33,3 +33,4 @@ Thumbs.db
 slurm_logs/
 cases/fullcell_shuttle_test/
 *.tar.gz
+analysis/

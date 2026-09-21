@@ -182,15 +182,25 @@ def gaussian_density_field(frame: Frame, grid=(48, 48, 96), sigma: float = 1.5,
 # Morphology parameters
 # ---------------------------------------------------------------------------
 def morphology_parameters(frame: Frame,
-                          sei_exclude=("Li", "SOL", "FSI", "ETH")) -> Dict[str, float]:
+                          sei_exclude=None) -> Dict[str, float]:
     """
     Scalar descriptors per frame, ready to be stacked into a feature table for
-    ML/SHAP.  SEI = occupied sites whose species is not in `sei_exclude`.
-    Extend freely; the keys become your ML feature names.
+    ML/SHAP.  SEI = the anode film (species.is_anode_film: anode SEI products
+    plus *_an deposits); cathode material and CEI film are NOT anode SEI.
+    Passing `sei_exclude` (a tuple of labels) restores the legacy rule
+    "everything not excluded is SEI".  Extend freely; the keys become your
+    ML feature names.  Cathode / CEI counts are reported separately.
     """
+    from .species import classify_array
     sp = frame.species
     is_li = sp == "Li"
-    is_sei = ~np.isin(sp, list(sei_exclude))
+    cls = classify_array(sp)
+    if sei_exclude is not None:
+        is_sei = ~np.isin(sp, list(sei_exclude))
+    else:
+        is_sei = (cls == "sei") | (cls == "deposit")
+    is_cath = cls == "cathode"
+    is_cei = cls == "cei"
     z = frame.pos[:, 2]
     Lz = frame.box[2, 2]
     out = {
@@ -209,6 +219,10 @@ def morphology_parameters(frame: Frame,
             (frame.pos[is_sei, :2] / frame.box.diagonal()[:2] * 32)
             .astype(int), axis=0).shape[0] / (32 * 32)) if is_sei.any() else 0.0,
         "box_z": float(Lz),
+        # full-cell extras (0 for anode-only runs)
+        "n_cathode": float(is_cath.sum()),
+        "n_CEI": float(is_cei.sum()),
+        "n_deposit": float((cls == "deposit").sum()),
     }
     return out
 
