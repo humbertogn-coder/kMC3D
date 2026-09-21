@@ -57,3 +57,13 @@ Change log of validated engine changes:
               6x6x24, shuttle rates x20, 61 half-cycles: s_total constant.
               Unit test: with _deposit_eligible_count forced to 0 the shuttle
               never fires while dissolved polysulfides accumulate.
+* 2026-09-21  cathode lattice sites excluded from the anode framework fills
+              (updateLiMetal, wrap, createEther). Legitimate correction: a
+              dissolved S8 site used to be refilled with foil Li on the next
+              step (Li metal inside the cathode; re-precipitation impossible).
+              anode_small byte-identical (cathode disabled -> no mask).
+              fullcell_small CHANGES by design: re-precipitation now fires,
+              cathode 178 instead of 173 sites at the end, n_Li 708 instead of
+              856. Reference regenerated from this run.
+* 2026-09-21  brakes li_pool_max / stop_electrolyte_fraction: both cases
+              byte-identical with the keywords absent.

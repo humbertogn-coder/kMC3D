@@ -1,5 +1,15 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-21
+- Cathode lattice sites (BC sites in the cathode z-band) excluded from the
+  three anode-framework fills: updateLiMetal "fill vacuum", wrap and
+  createEther. Before, a cathode site emptied by dissolution was refilled with
+  foil Li (or ETH) on the next step: Li metal inside the cathode, dissolution
+  irreversible, re-precipitation never fired, li_bulk inflated. Found with the
+  shuttle-rate sweep (k_sh/10, /50, /100 all lost the cathode identically).
+  anode_small byte-identical; fullcell_small reference regenerated (intended
+  change). Shuttle sweep conclusion: rates were not the cause of cathode loss.
+
 ## 2026-09-20
 - Structural brakes (opt-in, PARAMETERS.in): li_pool_max (pool cap: no
   stripping / RELEASE_LI when full; mean-field current coupling of the two

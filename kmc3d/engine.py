@@ -201,6 +201,17 @@ class Engine:
         self.n_dis = {spc: 0 for spc in self.res_species}   # dissolved counts
         self.reservoir_sites = int(getattr(params, "reservoir_sites", -1))
         self.cath_access = None   # static accessibility mask (None = all)
+        # Cathode lattice sites (BC sites inside the cathode z-band) are NOT
+        # anode framework: updateLiMetal / wrap must never fill them with Li
+        # and createEther must never fill them with ETH. Without this, a
+        # dissolved S8 site was refilled with foil Li on the next step (Li
+        # metal inside the cathode, re-precipitation impossible: found
+        # 2026-09-21). None when the cathode is disabled -> legacy path.
+        self.cath_bc_band = None
+        if getattr(geom, "cathode_enabled", False):
+            _z = lat.frac[:, 2]
+            self.cath_bc_band = lat.is_BC() & self._zband(
+                _z, geom.cathode_center, geom.cathode_thickness / 2.0)
         # ---- dynamic Li2S passivation of the cathode (opt-in, point 3) ----
         # Active only when cathode_passivation_nmin > 0 AND the species list is
         # non-empty. Species codes are looked up lazily in _passivation_mask()
@@ -351,9 +362,14 @@ class Engine:
         return m
 
     def _nonsei_mask(self):
+        """Sites the Li framework may overwrite (wrap): empty, Li or
+        electrolyte, and never a cathode lattice site."""
         s = self.spc
-        return (s == 0) | (s == self.cLi) | (s == self.cSOL) | (s == self.cFSI) \
+        m = (s == 0) | (s == self.cLi) | (s == self.cSOL) | (s == self.cFSI) \
             | (s == self.cETH)
+        if self.cath_bc_band is not None:
+            m &= ~self.cath_bc_band
+        return m
 
     # site-class codes for the combined neighbour-count pass
     _CLS_NONE, _CLS_LI, _CLS_ETH, _CLS_SOL, _CLS_FSI, _CLS_SEI, _CLS_CATH = range(7)
@@ -597,6 +613,8 @@ class Engine:
         self._refresh_counts()
         m = (self.occ != 1) & (self.lat.is_OCsite() | self.lat.is_BAsite()) \
             & (self.nLi <= 2)
+        if self.cath_bc_band is not None:
+            m &= ~self.cath_bc_band       # cathode BCO sites stay EMPTY
         self.occ[m] = 1; self.spc[m] = self.cETH; self.chg[m] = 0
 
     def updateEther(self):
@@ -718,6 +736,8 @@ class Engine:
         self._refresh_counts()
         fill = (self.occ != 1) & lat.is_BC() & \
             ((self.nOC_SEI + self.nBA_SEI) == 0) & (self.nETH == 0)
+        if self.cath_bc_band is not None:
+            fill &= ~self.cath_bc_band    # no foil Li inside the cathode
         if self.pool_shared:
             idx = np.where(fill)[0]
             idx = idx[:self._bulk_take(idx.size)]

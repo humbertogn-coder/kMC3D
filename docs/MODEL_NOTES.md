@@ -166,6 +166,11 @@ Rates remain placeholders (0.10/0.06/0.04/0.02 discharge, mirrored on charge).
 
 ## 8. Known limits (next increments)
 
+000. FIXED 2026-09-21: cathode sites are no longer overwritten by the anode
+   framework (Li fill / ETH fill). Earlier full-cell runs (fullcell_shuttle
+   and the first fullcell_cei production) carry this artifact: their cathode
+   loss and part of their li_bulk draw are not physical.
+
 00. ROOT CAUSE of the fast anode saturation (2026-09-20 analysis vs the
    original half-cell run): the two electrodes were not current-coupled.
    Stripping (k0 56 per surface Li0 site) outran cathodic reduction (k0 0.05
