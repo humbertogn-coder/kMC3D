@@ -27,3 +27,10 @@ reservoir_sites 2000
 # anode bulk foil: -1 = unlimited (framework Li accounted, not capped);
 # set N >= 0 to model a finite Li excess (effective N/P ratio)
 li_bulk_init -1
+# ---- structural brakes (2026-09-21) ----------------------------------------
+# li_pool_max: 2 * li_pool0 (74 Li+ in this box) -> mean-field current
+# coupling of the two electrodes (no stripping / cathodic oxidation when the
+# electrolyte cannot take more Li+). stop_electrolyte_fraction: clean stop
+# when ETH+SOL+FSI fall below 5 % of the initial count (cell dried out).
+li_pool_max 148
+stop_electrolyte_fraction 0.05

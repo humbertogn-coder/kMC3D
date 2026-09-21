@@ -110,3 +110,15 @@ TO-OBTAIN (needed, not yet available offline).
     FSI surface salt depletes 18 -> 9, film 26 sites, li_total constant 416,
     s_total constant apart from the known cascade leak, no crash on restart
     path. Not a physical run.
+
+## Calibration log
+
+- 2026-09-21, step 1 (shuttle): sweep k_sh x1, /10, /50, /100 on the 6x6x24
+  box with brakes on. Before the cathode-framework fix all four lost the
+  cathode identically (rates were not the cause). After the fix: x1 gives
+  CE_shuttle 0.28 to 0.65 and 128 Li2S2_an deposits in 10 half-cycles; /10
+  gives 0.63 to 0.80 (no-LiNO3 literature range, Mikhaylik-Akridge) and 15
+  deposits, cathode 146/180 sites alive. /10 adopted as working value. Open:
+  anode framework growth still dries the electrolyte in ~10 half-cycles on
+  the small box (~35 to 40 expected on 10x10x30); next calibration item is
+  the anode-to-cathode event ratio per cycle (maxInterval / rate scale).

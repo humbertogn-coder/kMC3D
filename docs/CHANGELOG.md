@@ -1,6 +1,10 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
 ## 2026-09-21
+- cases/fullcell_cei: shuttle k0 lowered 10x (0.05/0.05/0.02, calibration
+  step 1, CE_shuttle 0.63 to 0.80 in the small-box test) and brakes enabled
+  (li_pool_max 148, stop_electrolyte_fraction 0.05). Series 2 to be run on
+  GRACE with the corrected engine; series 1 results are artifact-laden.
 - Cathode lattice sites (BC sites in the cathode z-band) excluded from the
   three anode-framework fills: updateLiMetal "fill vacuum", wrap and
   createEther. Before, a cathode site emptied by dissolution was refilled with
