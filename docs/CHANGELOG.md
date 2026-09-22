@@ -1,6 +1,14 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
-## 2026-09-22
+## 2026-09-22 (post-processing)
+- kmc3d/compare_runs.py + postprocess/compare_halfcell.py: side-by-side
+  figure of half-cell runs from Data2Excel.txt (original C++ output included):
+  Li metal, cumulative decomposition, side events per plating, CE_cycle.
+- gaussian_density_field: periodic wrap and optional sigma per species
+  (sigma_i = 0.45 r_i from ff_data radii; solids only by default), so size
+  heterogeneity enters the density field at no pair-wise cost.
+- cases/anode_physical_A100: anode_physical with A_SEI = 100 on FSI/SFO/SOL
+  only (morphology variant; KINETICS_TABLE.md section 7).
 - anode_kinetics bv (opt-in, PARAMETERS.in): Butler-Volmer plating and
   stripping sharing one per-site exchange rate (bv_k0_site = j0 A_site / e,
   bv_alpha, eta_charge, eta_discharge); stripping keeps the MOBILITY.in

@@ -149,32 +149,68 @@ def z_warp(frame: Frame, ref_species: Tuple[str, ...] = ("Li",),
 # ---------------------------------------------------------------------------
 # Gaussian density field
 # ---------------------------------------------------------------------------
-def gaussian_density_field(frame: Frame, grid=(48, 48, 96), sigma: float = 1.5,
-                           species: Tuple[str, ...] | None = None) -> np.ndarray:
-    """
-    Deposit selected atoms onto a 3D grid and convolve with a Gaussian to get
-    a smooth density field (useful for porosity / dendrite descriptors and as
-    a CNN input).  numpy-only separable Gaussian; pass species=None for all.
-    """
-    sel = (np.ones(frame.species.shape, bool) if species is None
-           else np.isin(frame.species, list(species)))
-    p = frame.pos[sel]
-    nx, ny, nz = grid
-    L = frame.box.diagonal()
-    field = np.zeros(grid, float)
-    if p.shape[0]:
-        ix = np.clip((p[:, 0] / L[0] * nx).astype(int), 0, nx - 1)
-        iy = np.clip((p[:, 1] / L[1] * ny).astype(int), 0, ny - 1)
-        iz = np.clip((p[:, 2] / L[2] * nz).astype(int), 0, nz - 1)
-        np.add.at(field, (ix, iy, iz), 1.0)
-    # separable Gaussian blur in grid units
-    s = max(sigma / (L[2] / nz), 1e-3)
+def _blur(field: np.ndarray, sigma_vox: float) -> np.ndarray:
+    """Separable Gaussian blur with periodic wrap (the cell is periodic)."""
+    s = max(sigma_vox, 1e-3)
     rad = int(3 * s) + 1
     k = np.exp(-0.5 * (np.arange(-rad, rad + 1) / s) ** 2)
     k /= k.sum()
     for ax in range(3):
-        field = np.apply_along_axis(lambda m: np.convolve(m, k, mode="same"),
-                                    ax, field)
+        n = field.shape[ax]
+        pad = [(0, 0)] * 3; pad[ax] = (rad, rad)
+        f = np.pad(field, pad, mode="wrap")
+        f = np.apply_along_axis(lambda m: np.convolve(m, k, mode="same"), ax, f)
+        sl = [slice(None)] * 3; sl[ax] = slice(rad, rad + n)
+        field = f[tuple(sl)]
+    return field
+
+
+def gaussian_density_field(frame: Frame, grid=(48, 48, 96), sigma: float = 1.5,
+                           species: Tuple[str, ...] | None = None,
+                           sigma_by_species: bool = False,
+                           sigma_frac: float = 0.45) -> np.ndarray:
+    """
+    Deposit selected atoms onto a 3D grid and convolve with a Gaussian to get
+    a smooth density field (porosity / dendrite descriptors, CNN input).
+
+    sigma_by_species=False: one kernel width `sigma` (A) for every site (the
+    legacy behaviour and the group's 2026 draft, sigma = 0.45 * r_Li).
+    sigma_by_species=True: each species gets sigma_i = sigma_frac * r_i with
+    r_i the hard-sphere radius in ff_data.SPECIES_PROPS (proxy for unknown
+    labels), so a Li2Sx unit or an organic fragment spreads more than an F
+    atom. This represents the size heterogeneity of the lattice species at no
+    extra cost: one blur per distinct radius, on a grid, never pair-wise.
+    Periodic in all three directions.
+    """
+    sel = (np.ones(frame.species.shape, bool) if species is None
+           else np.isin(frame.species, list(species)))
+    nx, ny, nz = grid
+    L = frame.box.diagonal()
+    vox = L[2] / nz                     # A per voxel along z (grid is chosen cubic-ish)
+
+    def deposit(mask):
+        f = np.zeros(grid, float)
+        p = frame.pos[mask]
+        if p.shape[0]:
+            ix = np.mod((p[:, 0] / L[0] * nx).astype(int), nx)
+            iy = np.mod((p[:, 1] / L[1] * ny).astype(int), ny)
+            iz = np.mod((p[:, 2] / L[2] * nz).astype(int), nz)
+            np.add.at(f, (ix, iy, iz), 1.0)
+        return f
+
+    if not sigma_by_species:
+        return _blur(deposit(sel), sigma / vox)
+    from .ff_data import props_for
+    from .species import classify_array
+    if species is None:                 # by-species mode: solids only by default
+        sel &= classify_array(frame.species) != "electrolyte"
+    field = np.zeros(grid, float)
+    labels = frame.species[sel]
+    radii = {lab: props_for(lab).radius for lab in np.unique(labels)}
+    for r in sorted(set(radii.values())):
+        labs = [lab for lab, rr in radii.items() if rr == r]
+        m = sel & np.isin(frame.species, labs)
+        field += _blur(deposit(m), sigma_frac * r / vox)
     return field
 
 

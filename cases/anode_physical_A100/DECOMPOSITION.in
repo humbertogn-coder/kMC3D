@@ -1,0 +1,41 @@
+# DECOMPOSITION.in - anode_physical_A100: anode_physical with the SEI
+# ACCELERATION FACTOR A_SEI = 100 applied to the three electrolyte-reduction
+# channels (FSI, SFO, SOL) ONLY. Plating, stripping (BV block) and SOL2 (DFT
+# barrier) are NOT accelerated. Purpose: SEI morphology studies; each simulated
+# cycle deposits the SEI of ~100 physical cycles (docs/KINETICS_TABLE.md, sec. 7).
+# Basis of the reference values: docs/KINETICS_TABLE.md
+# format: <NAME> <nChannels> then per channel: sigma k0 Ea alpha E0
+# Plating / PlatingSEI: IGNORED in anode_kinetics bv (Butler-Volmer block in
+# PARAMETERS.in supplies both). Kept for the parser.
+Plating 1
+1 1E-4 0.000 0.0 -3.04
+PlatingSEI 1
+1 1E-4 0.000 0.0 -3.04
+# ---- electrolyte reduction at the Li surface -------------------------------
+# LiFSI (FSI) and F5DEE (SOL) reduction on Li are barrierless (LICET, Tan et
+# al. JACS 2024, p. 11714), so their rate is electron-transfer limited and,
+# without an explicit tunnelling attenuation through the SEI [P], cannot be
+# taken as the bare j0 (it would consume the electrolyte at once; Boyle 2020
+# shows the SEI-limited effective j0 is ~100x below the kinetic one).
+# CE-ANCHORED CHOICE: side-reaction events per plating event = (1 - CE)/CE
+# with CE = 0.998 (Yu 2022, LiFSI/F5DEE Li||Cu, 99.74 to 99.90 %) -> 2.0e-3.
+# The side-reaction k0 are set so that the OBSERVED event ratio (side events /
+# plating events) equals 2.0e-3, keeping the original network's internal
+# ratios SFO = 0.01 FSI, SOL = 0.02 FSI (Perez-Beltran 2024, relative).
+# Iteration 1 (k_FSI = 74 * 2e-3 = 0.15) gave 3.8 % because solvent sites next
+# to Li outnumber salt sites; iteration 2 divides by that factor (19).
+# Tag [V-derived, CE-anchored]. NOTE: at this physical ratio the SEI formed in
+# a 40 x 40 A patch is a few sites per cycle; morphology studies of the SEI
+# need an explicit, reported acceleration factor on these three k0 (the
+# original engine's 1e-4 : 1e-4 ratio corresponds to an acceleration of ~500).
+FSI 1
+1 8.0E-1 0.000 0.0 -3.04
+SFO 1
+1 8.0E-3 0.000 0.0 -3.04
+SOL 1
+1 1.6E-2 0.000 0.0 -3.04
+# F5DEE on Li2O: Ea 0.364 eV (Tan 2024 Fig. 4, DFT/NEB) with the transition-
+# state prefactor kT/h = 6.2e12 s^-1 at 298 K [V]. Fires whenever a solvent
+# site touches an O (Li2O) site: F5DEE decomposes readily on Li2O (Tan 2024).
+SOL2 1
+1 6.2E12 0.364 0.0 -3.04
