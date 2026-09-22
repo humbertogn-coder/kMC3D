@@ -120,6 +120,34 @@ class Parameters:
     #                 Mirrors the natural stall of the original half-cell
     #                 engine, which the full cell never reaches on its own.
     stop_electrolyte_fraction: float = 0.0
+    #   stop_anode_inactive_halves  clean termination after N consecutive
+    #                 half-cycles with zero plating and zero stripping events
+    #                 ("anode dead": the cathode alone keeps exchanging Li+ with
+    #                 the pool, which is not cycling). 0 = off (legacy).
+    stop_anode_inactive_halves: int = 0
+    # ---- physically based anode kinetics (opt-in, docs/KINETICS_TABLE.md) ----
+    #   anode_kinetics  legacy -> plating from DECOMPOSITION.in (Plating,
+    #                   PlatingSEI), stripping from MOBILITY.in LiStripping
+    #                   (byte-identical to the original engine)
+    #                   bv     -> Butler-Volmer plating AND stripping sharing one
+    #                   per-site exchange rate k0 = j0 * A_site / e:
+    #                     k_plate = bv_k0_site * exp(-bv_alpha * eta_charge / kT_V)
+    #                     k_strip = bv_k0_site * exp(-(Eact_i - Eact_min) / kT)
+    #                               * exp(+bv_alpha * eta_discharge / kT_V)
+    #                   kT_V = k_B T / e (0.0257 V at 298 K). eta_charge < 0
+    #                   (cathodic at the anode), eta_discharge > 0. The
+    #                   coordination-dependent Eact of MOBILITY.in (group DFT)
+    #                   is kept as a RELATIVE modulation of stripping so that
+    #                   the absolute scale comes from j0 and the site selection
+    #                   from the pair interactions.
+    #   bv_k0_site      s^-1 per site; 74 = j0 29.8 mA/cm2 (Boyle 2020, LiFSI/DME)
+    #   bv_alpha        0.5 (Butler-Volmer, low overpotential; Boyle 2020)
+    #   eta_charge, eta_discharge   V, magnitude set by the simulated C-rate
+    anode_kinetics: str = "legacy"
+    bv_k0_site: float = 74.0
+    bv_alpha: float = 0.5
+    eta_charge: float = -0.03
+    eta_discharge: float = 0.03
 
     # field name -> caster
     _CAST = {
@@ -131,7 +159,9 @@ class Parameters:
         "globalA": float, "numberDecompositionRxns": int, "nMobilityReactions": int,
         "li_pool_mode": str, "li_pool_init": int, "reservoir_sites": int,
         "li_bulk_init": int, "li_pool_max": int,
-        "stop_electrolyte_fraction": float,
+        "stop_electrolyte_fraction": float, "stop_anode_inactive_halves": int,
+        "anode_kinetics": str, "bv_k0_site": float, "bv_alpha": float,
+        "eta_charge": float, "eta_discharge": float,
     }
 
     @classmethod

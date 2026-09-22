@@ -1,0 +1,36 @@
+# anode_physical: Li-metal half cell (same lattice and mechanism as the original
+# engine) with PHYSICALLY BASED anode kinetics (docs/KINETICS_TABLE.md).
+# The legacy case stays byte-identical; this is a new reference, validated
+# against experiment (CE 0.995 to 0.999, Yu et al. Nat. Energy 2022, Fig. 4)
+# and against the original run as antecedent (morphology, SEI growth).
+seed 8597
+temperature 298
+saltMolar 1.2
+solvMolar 6.5
+scanIntervalType time
+potentialType step
+scanInterval 3600
+maxInterval 50
+BeginV 4.4
+EndV 2.8
+totalSteps 100000
+maxCycles 152
+printStepFreq 1
+XYZprintFreq 100
+snapshotEveryCycles 20
+checkpointEveryCycles 20
+globalA 0.5
+numberDecompositionRxns 6
+nMobilityReactions 3
+li_pool_mode fixed
+# ---- physically based anode kinetics (opt-in) -----------------------------
+# k0_site = j0 * A_site / e with j0 = 29.8 mA/cm2 (LiFSI in DME, Boyle et al.
+# ACS Energy Lett. 2020, 5, 701, Table 1) and A_site = (2.0 A)^2 -> 74 s^-1.
+# alpha 0.5 (Butler-Volmer at low overpotential, Boyle 2020 Fig. 2).
+# eta = +-30 mV: working choice for C/10 to C/5 (to be replaced by the group's
+# Li||Cu polarization data; tag [P] in KINETICS_TABLE.md).
+anode_kinetics bv
+bv_k0_site 74
+bv_alpha 0.5
+eta_charge -0.03
+eta_discharge 0.03

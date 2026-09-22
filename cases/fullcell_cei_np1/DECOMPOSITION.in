@@ -1,0 +1,88 @@
+# DECOMPOSITION.in - Li-S full cell + CEI kinetics (25 reactions, S8-unit cascade)
+# anode SEI (1E-4 base-case values) + cathode conversions (PLACEHOLDERS for AIMD)
+# format: <NAME> <nChannels> then per channel: sigma k0 Ea alpha E0
+# ---- anode -----------------------------------------------------------------
+Plating 1
+1 1E-4 0.000 0.0 -3.04
+PlatingSEI 1
+1 1E-4 0.000 0.0 -3.04
+FSI 1
+1 1E-4 0.000 0.0 -3.04
+SFO 1
+1 1E-6 0.000 0.0 -3.04
+SOL 1
+1 2E-6 0.000 0.0 -3.04
+SOL2 1
+1 1E10 0.364 0.0 -3.04
+# ---- cathode reduction (discharge), S8-unit cascade : PLACEHOLDER rates ---
+# high plateau (faster): S8 -> Li2S8 -> Li4S8 ; low plateau (slower,
+# kinetically limiting, insoluble): Li4S8 -> Li8S8 -> Li16S8
+cat_S8_red 1
+1 0.10 0.000 0.0 0.0
+cat_Li2S8_red 1
+1 0.06 0.000 0.0 0.0
+cat_Li4S8_red 1
+1 0.04 0.000 0.0 0.0
+cat_Li8S8_red 1
+1 0.02 0.000 0.0 0.0
+# ---- cathode oxidation (charge) : PLACEHOLDER rates (mirror of discharge) --
+cat_Li16S8_ox 1
+1 0.02 0.000 0.0 0.0
+cat_Li8S8_ox 1
+1 0.04 0.000 0.0 0.0
+cat_Li4S8_ox 1
+1 0.06 0.000 0.0 0.0
+cat_Li2S8_ox 1
+1 0.10 0.000 0.0 0.0
+# ---- polysulfide dissolution (cathode, any V) : PLACEHOLDER ---------------
+# per-site k0 [1/s]; Li2S8 > Li4S8 (Li2S4 marginally soluble); Li8S8/Li16S8
+# insoluble -> no dissolution channel. Rauh 1977 / Mikhaylik 2004: S as Li2Sx
+# exceeds 10 M in ethers, so high-order dissolution is fast.
+cat_diss_Li2S8 1
+1 0.05 0.000 0.0 0.0
+cat_diss_Li4S8 1
+1 0.02 0.000 0.0 0.0
+# ---- re-precipitation on empty cathode sites (any V) : PLACEHOLDER --------
+# rate per empty site = k0 * c_x, c_x = N_dis[x]/reservoir_sites (mean field).
+# k_diss/k_prec sets the dissolved fraction at steady state (calibrate ratio,
+# not each value). Marinescu et al. JES 165 (2018) A6107: precipitation
+# constant k_p. cat_prec_Li2S6 is the 2 Li2S6 -> Li2S8 + Li2S4 disproportionation.
+cat_prec_Li2S8 1
+1 5.0 0.000 0.0 0.0
+cat_prec_Li2S6 1
+1 5.0 0.000 0.0 0.0
+cat_prec_Li2S4 1
+1 5.0 0.000 0.0 0.0
+# ---- polysulfide shuttle at the Li surface (any V) : PLACEHOLDER, step 1 --
+# rate per surface Li0 site = k0 * c_x (mean field). Calibrate against the
+# Mikhaylik-Akridge shuttle factor f_c = k_s q_H [S]/I (exp. ~1.1 to 4,
+# JES 151 (2004) A1969) and target CE (0.95-0.99 with LiNO3, 0.6-0.9 without).
+# 2026-09-21 calibration step 1: the original 0.5/0.5/0.2 gave CE_shuttle
+# 0.28 to 0.65 and 128 anode deposits in 10 half-cycles (6x6x24 box, brakes
+# on, cathode fix in); 0.05/0.05/0.02 gave CE_shuttle 0.63 to 0.80, i.e. the
+# no-LiNO3 literature range, with 15 deposits. Adopted as the working value.
+# NOT a final calibration (single seed, small box).
+sh_Li2S8 1
+1 0.05 0.000 0.0 0.0
+sh_Li2S6 1
+1 0.05 0.000 0.0 0.0
+sh_Li2S4 1
+1 0.02 0.000 0.0 0.0
+# ---- CEI: FSI reduced by long-chain polysulfides (cathode_surface, any V) --
+# rate per FSI surface site = k0 * c_x, c_x = N_dis[x]/reservoir_sites (mean
+# field, same footing as the shuttle sh_Li2Sx rates 0.5/0.5/0.2 per Li0 site).
+# PLACEHOLDER magnitude, relative reasoning: [SF26] Fig. 3a, pure-LiFSI cell
+# loses ~85 % of its capacity within ~8 cycles at C/10, i.e. the FSI path
+# removes a large fraction of the long-chain inventory per cycle. With ~20 FSI
+# surface sites against ~300 Li0 surface sites (10x10x30 box), k0 = 1.0 gives
+# the CEI path roughly one tenth of the shuttle's initial event share; raise
+# toward 5 to reproduce the few-cycle collapse of [SF26]. Li2S8 and Li2S6 are
+# given the same k0 (both "long chain" in [SF26]; no chain-length resolution).
+# TODO calibrate against [SF26] Fig. 3a once the S8-unit cascade is in place.
+cei_FSI_Li2S8 1
+1 1.0 0.000 0.0 0.0
+cei_FSI_Li2S6 1
+1 1.0 0.000 0.0 0.0
+# ---- CEI: F5DEE vs polysulfides. DISABLED (sigma 0): no evidence yet -------
+cei_F5DEE_Li2S8 1
+0 0.1 0.000 0.0 0.0

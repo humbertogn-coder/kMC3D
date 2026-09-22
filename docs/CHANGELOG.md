@@ -1,5 +1,41 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-22
+- anode_kinetics bv (opt-in, PARAMETERS.in): Butler-Volmer plating and
+  stripping sharing one per-site exchange rate (bv_k0_site = j0 A_site / e,
+  bv_alpha, eta_charge, eta_discharge); stripping keeps the MOBILITY.in
+  coordination dependence as a relative modulation. Legacy path byte-identical
+  (both validation cases). New case cases/anode_physical (half cell, 10x10x30,
+  152 half-cycles of 50 events like the original run): j0 29.8 mA/cm2 (Boyle
+  2020), CE-anchored side-reaction rates (CE 0.998, Yu 2022), SOL2 with kT/h
+  prefactor and Ea 0.364 eV (Tan 2024).
+- bv plating candidate is aggregated (k_bv x number of growth sites) instead
+  of salt-site based: in the legacy scheme a slow side reaction fired (with a
+  100 to 600 s time jump) whenever no salt site touched Li0, so the event CE
+  was set by salt geometry rather than kinetics. Legacy path untouched.
+  First anode_physical result (22 half-cycles): plating 565, stripping 550,
+  side reactions 0, Li inventory stable at ~1100: consistent with CE 0.998.
+- docs/KINETICS_TABLE.md verified against six PDFs (Boyle 2020, Kumaresan
+  2008, Marinescu 2016, Mikhaylik 2004, Zhang 2016, Yue 2018): no [M] entries
+  left. Key numbers: j0(Li, LiFSI/DME) 29.8 mA/cm2 = 74 s^-1 per site; cathode
+  i0 per Kumaresan Table II (assumed by the authors) and Marinescu Table 1;
+  ks 0.53 h^-1 (Mikhaylik) = 0.009 s^-1 per Li0 site in the 10x10x30 box.
+- kmc3d/morphology.py + postprocess/morphology_case.py: lattice-topological
+  descriptors per frame (Li connected components, buried Li and its coating,
+  film extent and roughness per side, porosity profile relative to the anode
+  centre, total solid fraction). No voxelization needed; 0.6 s per frame.
+  Output <case>/analysis/morphology.csv.
+- docs/KINETICS_TABLE.md: every rate of the physically based engine with its
+  formula, value at 298 K, source and verification tag ([V] verified, [M]
+  from memory to verify, [P] pending, [G] group). Nothing [M]/[P] enters a
+  production case. docs/ANODE_KINETICS.md: Butler-Volmer formulation.
+- stop_anode_inactive_halves (opt-in): clean stop when the anode has had no
+  plating or stripping for N consecutive half-cycles. Both validation cases
+  byte-identical.
+- cases/fullcell_cei_np1: thin cathode (one BC layer, 100 S8 sites, N/P ~ 0.7)
+  + all three stops. Series 3 candidate.
+- Series 2 of fullcell_cei analyzed (docs/MODEL_NOTES.md section 8).
+
 ## 2026-09-21 (post-processing)
 - kmc3d/species.py: single classification of labels (metal, electrolyte,
   cathode, deposit, cei, sei) and S8-unit label mapping; used by

@@ -35,6 +35,9 @@ PARAMETERS.in
                      ETH + SOL + FSI sites fall below f * initial ("cell dried
                      out"), the explicit form of the original engine's natural
                      stall. Suggested 0.05. (structural brake 2)
+    stop_anode_inactive_halves  0 = off. N > 0: stop after N consecutive
+                     half-cycles with zero plating and zero stripping (anode
+                     dead; the cathode alone exchanging pool Li+ is not cycling).
 GEOMETRY.in
     cathode_access_fraction      1.0 = all cathode sites convert; < 1.0 draws a
                                  static contact mask at cell creation (point 4, static)
@@ -165,6 +168,28 @@ Li and S. Known simplification: no direct Li2S6 dissolution from the cathode.
 Rates remain placeholders (0.10/0.06/0.04/0.02 discharge, mirrored on charge).
 
 ## 8. Known limits (next increments)
+
+0000. SERIES 2 RESULT (fullcell_cei, corrected engine, 5 seeds, 200 half-
+   cycles, 2026-09-21): conservation exact; cathode survives (425/700 sites at
+   cycle 100), dissolution/precipitation in equilibrium, CEI is the sulfur sink
+   (35 % of S) after exhausting the surface FSI. BUT the anode dies by cycle
+   ~30 (framework Li 1200 -> 5330 sites, electrolyte 17800 -> 1800, zero
+   plating/stripping afterwards) and capacity plateaus at 22 mAh/g (1.3 %):
+   the 400-event half-cycle can move at most ~200 Li while the cathode needs
+   11200 (N/P 0.10), and the legacy anode kinetics (tuned for 50-event
+   half-cycles) age the anode 8x per cycle. Levers: (1) geometry N/P ~ 1
+   (cases/fullcell_cei_np1, series 3), (2) larger maxInterval (kills the anode
+   faster, rejected alone), (3) physical anode kinetics (Butler-Volmer plating/
+   stripping with experimental j0, alpha 0.5; DFT Ea for decomposition) as a
+   new case anode_physical: the real calibration, in progress.
+   Morphology of series 2 (kmc3d/morphology.py): the Li slab grows from 20 A
+   to 104 A thick (5320 Li sites of 6000 BC sites), a single connected body
+   with NO buried Li, and only 9 to 21 anode-SEI sites in 200 half-cycles
+   (the original half cell formed ~1300 in 152). Anode decomposition (k0
+   1e-4 to 1e-6 per site) is frozen out of the shared BKL by cathode events
+   1000x faster: another face of the rate-scale mismatch. Legacy Li growth
+   by the framework (foil refill + wrap) is what ends both the original and
+   the full cell, in ~150 half-cycles of 50 events there, ~60 of 400 here.
 
 000. FIXED 2026-09-21: cathode sites are no longer overwritten by the anode
    framework (Li fill / ETH fill). Earlier full-cell runs (fullcell_shuttle

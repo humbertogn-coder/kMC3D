@@ -1,0 +1,11 @@
+# Li-metal half cell, same box as the original engine reference run
+latticeConstant 4.0
+nx 10
+ny 10
+nz 30
+anode_center 0.5
+anode_thickness_A 20.2
+anode_thickness_is_fraction false
+anode_species Li
+cathode_enabled false
+write_poscar false

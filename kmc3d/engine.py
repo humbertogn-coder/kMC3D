@@ -181,6 +181,15 @@ class Engine:
             self.li_pool_max = -1          # meaningless without a pool
         self.stop_elec_frac = float(getattr(params, "stop_electrolyte_fraction", 0.0))
         self.n_elec0 = 0                   # electrolyte sites at t=0
+        self.stop_anode_halves = int(getattr(params, "stop_anode_inactive_halves", 0))
+        # ---- physically based anode kinetics (opt-in) ----
+        self.bv = str(getattr(params, "anode_kinetics", "legacy")).lower() == "bv"
+        self.bv_k0 = float(getattr(params, "bv_k0_site", 74.0))
+        self.bv_alpha = float(getattr(params, "bv_alpha", 0.5))
+        self.eta_c = float(getattr(params, "eta_charge", -0.03))
+        self.eta_d = float(getattr(params, "eta_discharge", 0.03))
+        self.kT_V = KB_EV * params.temperature      # k_B T / e in volts
+        self.anode_dead = False
         self.dried_out = False
         self.pool_full_blocks = 0          # audit: candidate sets pruned by the cap
         self.li_consumed = 0      # Li+ consumed by cathode reduction (bookkeeping)
@@ -1004,6 +1013,11 @@ class Engine:
             sr_plate = self._decomp_sumrate("Plating")
             sr_fsi = self._decomp_sumrate("FSI")
             sr_psei = self._decomp_sumrate("PlatingSEI")
+            if self.bv:
+                # Butler-Volmer plating: one exchange rate for both Li placing
+                # channels; DECOMPOSITION.in Plating/PlatingSEI entries ignored
+                k_bv = self.bv_k0 * np.exp(-self.bv_alpha * self.eta_c / self.kT_V)
+                sr_plate = sr_psei = k_bv * self.p.globalA
             salt = np.where(occ1 & (self.spc == self.cFSI))[0]
             # shared pool: every Li-placing event needs one Li+ and scales
             # with the remaining fraction of the pool (mean-field depletion)
@@ -1013,6 +1027,19 @@ class Engine:
                     sr_plate = sr_fsi = sr_psei = 0.0
                 else:
                     sr_plate *= fpool; sr_fsi *= fpool; sr_psei *= fpool
+            if self.bv and sr_plate > 0:
+                # BV plating: Li+ is available everywhere in a 1.2 M electrolyte,
+                # so the plating weight is k_bv times the number of growth sites
+                # (empty BC next to electrolyte and to 2 to 5 Li), not the number
+                # of salt sites touching Li0. Removes the legacy artifact where a
+                # slow side reaction fires whenever no salt site is adjacent.
+                # LiPlating() then picks one of those growth sites at random.
+                elig = self._eligible_BC() & (self.nETH > 0) & (self.nLi >= 2) & (self.nLi <= 5)
+                n_el = int(elig.sum())
+                if n_el:
+                    cand_types.append("Plating"); cand_sites.append(-1)
+                    cand_w.append(n_el * sr_plate); cand_dest.append(-1)
+                sr_plate = sr_psei = 0.0     # no salt-based plating candidates
             if salt.size:
                 mult_bc0 = self._neighbour_mult(salt, (BCB, BCO), li0)
                 mult_allN = self._neighbour_mult(salt, (BCB, BCO, BA, OC, TE), liN)
@@ -1064,10 +1091,18 @@ class Engine:
                 strip = None
                 self.pool_full_blocks += 1
             cand_li = np.where(li0 & (self.nLi <= 4) & (self.nETH >= 1))[0]
+            if self.bv and strip and cand_li.size:
+                # Butler-Volmer stripping: absolute scale from j0, site
+                # selection from the coordination-dependent Eact (relative)
+                e_min = float(eact[cand_li].min())
+                k_bv_d = self.bv_k0 * self.p.globalA * np.exp(self.bv_alpha * self.eta_d / self.kT_V)
             for i in cand_li:
                 if strip and strip["sigma"] != 0:
-                    r, _ = self._arr_rate(strip["sigma"], strip["k0"], eact[i],
-                                          strip["alpha"], strip["E0"])
+                    if self.bv:
+                        r = k_bv_d * np.exp(-(eact[i] - e_min) / self.kT)
+                    else:
+                        r, _ = self._arr_rate(strip["sigma"], strip["k0"], eact[i],
+                                              strip["alpha"], strip["E0"])
                     if r > 0:
                         cand_types.append("LiStripping"); cand_sites.append(i)
                         cand_w.append(r); cand_dest.append(-1)
@@ -1163,7 +1198,7 @@ class Engine:
         # advancing the step). This caps the time a single slow event can skip.
         if dt > self.p.scanInterval / 5.0:
             return "REJECT"
-        self.last.update(type=rname, Ospcs=self.spt.code2sym[self.spc[site]],
+        self.last.update(type=rname, Ospcs=(self.spt.code2sym[self.spc[site]] if site >= 0 else "Li"),
                          Ea=0.0, expValue=0.0, reactRate=float(w[j]), time=float(dt))
 
         # execute
@@ -1327,10 +1362,25 @@ class Engine:
         ckpt_every = int(getattr(self.p, "checkpointEveryCycles", 0))
         last_ckpt_cycle = self.cycleNumber
         last_stop_check = self.cycleNumber
+        _anode_events = lambda: self.R["Plating"] + self.R["PlatingSEI"] + self.R["LiStripping"]
+        anode_prev = _anode_events()
+        anode_idle = 0
         try:
             while (self.currentStep <= self.p.totalSteps
                    and self.cycleNumber <= self.p.maxCycles):
                 self.step()
+                if self.stop_anode_halves > 0 and self.cycleNumber != last_stop_check:
+                    cur = _anode_events()
+                    anode_idle = anode_idle + 1 if cur == anode_prev else 0
+                    anode_prev = cur
+                    if self.stop_elec_frac <= 0:
+                        last_stop_check = self.cycleNumber
+                    if anode_idle >= self.stop_anode_halves:
+                        self.anode_dead = True
+                        self.out.log(f"Anode inactive for {anode_idle} half-cycles (no plating, "
+                                     f"no stripping) at half-cycle {self.cycleNumber}. Stopping.")
+                        last_stop_check = self.cycleNumber
+                        break
                 if self.stop_elec_frac > 0 and self.cycleNumber != last_stop_check:
                     # evaluated once per half-cycle flip
                     last_stop_check = self.cycleNumber
@@ -1382,6 +1432,14 @@ class Engine:
         if self.li_pool_max > 0:
             self.out.log(f"li_pool_max={self.li_pool_max}: stripping and RELEASE_LI "
                          f"gated when the pool is full")
+        if self.bv:
+            self.out.log(f"anode_kinetics=bv: k0_site={self.bv_k0} s^-1, alpha={self.bv_alpha}, "
+                         f"eta_charge={self.eta_c} V, eta_discharge={self.eta_d} V "
+                         f"(plating factor {np.exp(-self.bv_alpha * self.eta_c / self.kT_V):.2f}, "
+                         f"stripping factor {np.exp(self.bv_alpha * self.eta_d / self.kT_V):.2f})")
+        if self.stop_anode_halves > 0:
+            self.out.log(f"stop_anode_inactive_halves={self.stop_anode_halves}: run stops "
+                         f"after that many half-cycles without plating or stripping")
         if self.stop_elec_frac > 0:
             self.n_elec0 = self._electrolyte_count()
             self.out.log(f"stop_electrolyte_fraction={self.stop_elec_frac}: run stops "
