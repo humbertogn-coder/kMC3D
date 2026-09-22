@@ -17,18 +17,25 @@ PlatingSEI 1
 # The side-reaction k0 are set so that the OBSERVED event ratio (side events /
 # plating events) equals 2.0e-3, keeping the original network's internal
 # ratios SFO = 0.01 FSI, SOL = 0.02 FSI (Perez-Beltran 2024, relative).
-# Iteration 1 (k_FSI = 74 * 2e-3 = 0.15) gave 3.8 % because solvent sites next
-# to Li outnumber salt sites; iteration 2 divides by that factor (19).
+# Anchoring accounts for candidate multiplicity: the BV plating weight is
+# k_bv x N_growth (161 growth sites in the 10x10x30 box at half-cycle 45)
+# while FSI / SOL decomposition weigh k x (salt or solvent sites touching Li0:
+# 2 and 16 to 20). Solving side/plating = 2e-3 with the original SOL:FSI event
+# ratio 0.13 gives k_FSI = 19, k_SOL = 0.25, k_SFO = 0.19 s^-1 per adjacent
+# site. Note k_FSI is of the order of k_bv itself: FSI reduction at the
+# interface is fast per molecule (barrierless, Tan 2024) and the high CE comes
+# from the scarcity of salt at the interface. Values are geometry-dependent
+# (through N_growth / N_adjacent) and are re-derived per box size.
 # Tag [V-derived, CE-anchored]. NOTE: at this physical ratio the SEI formed in
 # a 40 x 40 A patch is a few sites per cycle; morphology studies of the SEI
 # need an explicit, reported acceleration factor on these three k0 (the
 # original engine's 1e-4 : 1e-4 ratio corresponds to an acceleration of ~500).
 FSI 1
-1 8.0E-3 0.000 0.0 -3.04
+1 19 0.000 0.0 -3.04
 SFO 1
-1 8.0E-5 0.000 0.0 -3.04
+1 0.19 0.000 0.0 -3.04
 SOL 1
-1 1.6E-4 0.000 0.0 -3.04
+1 0.25 0.000 0.0 -3.04
 # F5DEE on Li2O: Ea 0.364 eV (Tan 2024 Fig. 4, DFT/NEB) with the transition-
 # state prefactor kT/h = 6.2e12 s^-1 at 298 K [V]. Fires whenever a solvent
 # site touches an O (Li2O) site: F5DEE decomposes readily on Li2O (Tan 2024).
