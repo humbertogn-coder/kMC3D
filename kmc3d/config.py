@@ -148,6 +148,36 @@ class Parameters:
     bv_alpha: float = 0.5
     eta_charge: float = -0.03
     eta_discharge: float = 0.03
+    # ---- physically based cathode kinetics (opt-in) ----------------------
+    #   cathode_kinetics  legacy -> REGION cathode reactions use the cell
+    #                     voltage label (BeginV / EndV) in the Arrhenius term,
+    #                     as every legacy case does (alpha 0 there anyway)
+    #                     bv     -> REGION cathode reactions are evaluated at
+    #                     the CATHODE potential of the current half-cycle:
+    #                       rate = globalA sigma k0 exp(-(Ea - alpha (V_cat - E0)) / kT)
+    #                     with E0 the standard potential of the step
+    #                     (Kumaresan 2008 Table II) and alpha SIGNED by the
+    #                     electron direction: negative for reductions
+    #                     (cathodic, favoured when V_cat < E0), positive for
+    #                     oxidations (anodic). k0 per site from the exchange
+    #                     current density (Marinescu 2016 Table 1).
+    #   cathode_V_charge / cathode_V_discharge   V vs Li/Li+, the plateau
+    #                     potentials the cell is held at (2.45 / 1.9 V typical
+    #                     Li-S charge / discharge cut-off region).
+    cathode_kinetics: str = "legacy"
+    cathode_V_charge: float = 2.45
+    cathode_V_discharge: float = 1.9
+    # ---- cycling protocol (opt-in) -----------------------------------------
+    #   first_half   begin (legacy: the run starts at BeginV, a charge) |
+    #                end (start at EndV, a discharge: a cell assembled in the
+    #                charged state, Li anode + S8 cathode, must discharge first)
+    #   end_half_when_idle  0 = off. N > 0: the half-cycle ends when N
+    #                consecutive events transferred no Li (no plating, no
+    #                stripping, no cathode conversion): the kMC analogue of a
+    #                zero-current cut-off. Without it the fixed event budget is
+    #                spent on side reactions once the electrochemistry is done.
+    first_half: str = "begin"
+    end_half_when_idle: int = 0
 
     # field name -> caster
     _CAST = {
@@ -162,6 +192,8 @@ class Parameters:
         "stop_electrolyte_fraction": float, "stop_anode_inactive_halves": int,
         "anode_kinetics": str, "bv_k0_site": float, "bv_alpha": float,
         "eta_charge": float, "eta_discharge": float,
+        "cathode_kinetics": str, "cathode_V_charge": float, "cathode_V_discharge": float,
+        "first_half": str, "end_half_when_idle": int,
     }
 
     @classmethod

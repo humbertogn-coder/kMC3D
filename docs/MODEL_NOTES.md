@@ -169,6 +169,20 @@ Rates remain placeholders (0.10/0.06/0.04/0.02 discharge, mirrored on charge).
 
 ## 8. Known limits (next increments)
 
+MILESTONE 3 (2026-09-23): PHYSICALLY BASED FULL CELL CYCLES. Smoke test of
+cases/fullcell_physical on a 6x6x24 box (12 half-cycles): with anode_kinetics
+bv, cathode_kinetics bv, first_half end, end_half_when_idle 50 and a FINITE Li
+inventory (li_bulk_init 0), the cell reaches a steady state: anode Li 403
+(charged) <-> 185 (discharged), electrolyte constant, cathode fully converted
+S8 <-> Li8S8/Li16S8 each half-cycle, ~205 Li+ moved per half-cycle both ways,
+pool bounded, li_total and s_total exact, SEI 22 sites in 12 half-cycles
+(~0.5 % of platings). Every rate traces to docs/KINETICS_TABLE.md. Two legacy
+behaviours had to be switched off for this: the semi-infinite foil (which
+refilled stripped vacancies and inflated the slab by the plated amount every
+cycle) and the charge-first protocol (a cell assembled charged must discharge
+first, otherwise the event budget of the first half goes to electrolyte
+decomposition).
+
 0000. SERIES 2 RESULT (fullcell_cei, corrected engine, 5 seeds, 200 half-
    cycles, 2026-09-21): conservation exact; cathode survives (425/700 sites at
    cycle 100), dissolution/precipitation in equilibrium, CEI is the sulfur sink

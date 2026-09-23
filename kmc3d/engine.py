@@ -117,6 +117,10 @@ class Engine:
         # scalars
         self.kT = KB_EV * params.temperature
         self.presentV = params.BeginV
+        if str(getattr(params, "first_half", "begin")).lower() == "end":
+            self.presentV = params.EndV          # start with a discharge
+        self.idle_limit = int(getattr(params, "end_half_when_idle", 0))
+        self.idle_events = 0                     # consecutive non-Li-transfer events
         self.cycleNumber = 0
         self.currentStep = 0
         self.currentTime = 0.0
@@ -189,6 +193,9 @@ class Engine:
         self.eta_c = float(getattr(params, "eta_charge", -0.03))
         self.eta_d = float(getattr(params, "eta_discharge", 0.03))
         self.kT_V = KB_EV * params.temperature      # k_B T / e in volts
+        self.cath_bv = str(getattr(params, "cathode_kinetics", "legacy")).lower() == "bv"
+        self.cath_V_c = float(getattr(params, "cathode_V_charge", 2.45))
+        self.cath_V_d = float(getattr(params, "cathode_V_discharge", 1.9))
         self.anode_dead = False
         self.dried_out = False
         self.pool_full_blocks = 0          # audit: candidate sets pruned by the cap
@@ -440,19 +447,27 @@ class Engine:
         valid = occ1[self.dst] & within & (Iv > 0) & (Iv < 1)
         return np.bincount(self.src, weights=Iv * valid, minlength=self.N)
 
-    def _arr_rate(self, sigma, k0, Ea, alpha, E0):
-        expv = (Ea - alpha * (self.presentV - E0)) / self.kT
+    def _arr_rate(self, sigma, k0, Ea, alpha, E0, V=None):
+        """rate = globalA sigma k0 exp(-(Ea - alpha (V - E0)) / kT). V defaults
+        to the cell voltage label (legacy); the cathode BV mode passes the
+        cathode potential of the half-cycle instead."""
+        Vx = self.presentV if V is None else V
+        expv = (Ea - alpha * (Vx - E0)) / self.kT
         return self.p.globalA * sigma * k0 * np.exp(-expv), expv
 
-    def _decomp_sumrate(self, rtype):
+    def _decomp_sumrate(self, rtype, V=None):
         """Sum of Arrhenius rates over all (non-zero sigma) rate channels."""
         tot = 0.0
         for c in self.dec.channels.get(rtype, []):
             if c["sigma"] != 0.0:
                 r, _ = self._arr_rate(c["sigma"], c["k0"], c["Ea"],
-                                      c["alpha"], c["E0"])
+                                      c["alpha"], c["E0"], V)
                 tot += r
         return tot
+
+    def _cathode_V(self):
+        """Cathode potential (V vs Li/Li+) of the current half-cycle."""
+        return self.cath_V_c if self.presentV == self.p.BeginV else self.cath_V_d
 
     # --------------------------------------------------------- population ops
     def _eligible_BC(self):
@@ -849,7 +864,13 @@ class Engine:
     def _voltage_update(self):
         if self.p.potentialType == "step" and self.p.scanIntervalType == "time":
             if (self.timeCurrentV >= self.p.scanInterval
-                    or self.stepCurrentV >= self.p.maxInterval):
+                    or self.stepCurrentV >= self.p.maxInterval
+                    or (self.idle_limit > 0 and self.idle_events >= self.idle_limit)):
+                if self.idle_limit > 0 and self.idle_events >= self.idle_limit:
+                    self.out.log(f"half-cycle {self.cycleNumber} ended idle after "
+                                 f"{self.idle_events} events without Li transfer "
+                                 f"(step {self.currentStep})")
+                self.idle_events = 0
                 self.countOandF()
                 self._write_xyz()
                 self.ledger.close_half(self)
@@ -1148,7 +1169,8 @@ class Engine:
                     n_dep_room = self._deposit_eligible_count()
                 if n_dep_room < dneed:
                     continue
-            sr = self._decomp_sumrate(r.name)
+            sr = self._decomp_sumrate(
+                r.name, self._cathode_V() if (self.cath_bv and r.region == "cathode") else None)
             if sr <= 0:
                 continue
             # mean-field scaling by reservoir concentration (RATE_SCALE)
@@ -1201,7 +1223,10 @@ class Engine:
         self.last.update(type=rname, Ospcs=(self.spt.code2sym[self.spc[site]] if site >= 0 else "Li"),
                          Ea=0.0, expValue=0.0, reactRate=float(w[j]), time=float(dt))
 
-        # execute
+        # execute (and track whether this event transferred Li for end_half_when_idle)
+        li_transfer = (rtype in ("Plating", "PlatingSEI", "LiStripping")
+                       or (is_conv and self._li_transfer.get(rname, False)))
+        self.idle_events = 0 if li_transfer else self.idle_events + 1
         if is_conv:
             self._apply_conversion(self.mech.get(rname), site)
             self.R[rname] += 1
@@ -1437,6 +1462,15 @@ class Engine:
                          f"eta_charge={self.eta_c} V, eta_discharge={self.eta_d} V "
                          f"(plating factor {np.exp(-self.bv_alpha * self.eta_c / self.kT_V):.2f}, "
                          f"stripping factor {np.exp(self.bv_alpha * self.eta_d / self.kT_V):.2f})")
+        if self.presentV == self.p.EndV:
+            self.out.log("first_half=end: the run starts with a discharge")
+        if self.idle_limit > 0:
+            self.out.log(f"end_half_when_idle={self.idle_limit}: half-cycles end after that "
+                         f"many consecutive events without Li transfer")
+        if self.cath_bv:
+            self.out.log(f"cathode_kinetics=bv: V_charge={self.cath_V_c} V, "
+                         f"V_discharge={self.cath_V_d} V (REGION cathode rates use "
+                         f"alpha (V_cat - E0); alpha < 0 reduction, > 0 oxidation)")
         if self.stop_anode_halves > 0:
             self.out.log(f"stop_anode_inactive_halves={self.stop_anode_halves}: run stops "
                          f"after that many half-cycles without plating or stripping")

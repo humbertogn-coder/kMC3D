@@ -163,3 +163,20 @@ growth sites (Li+ is available throughout a 1.2 M electrolyte) and plating
 never runs out of candidates; decompositions still require an adjacent salt or
 solvent site. With this, the side-event fraction follows the k0 ratio as
 intended.
+
+## 9. Cathode implementation (2026-09-23)
+
+cathode_kinetics bv evaluates every REGION cathode channel as
+rate = globalA sigma k0 exp(-(Ea - alpha (V_cat - E0)) / kT) with V_cat the
+half-cycle cathode potential (cathode_V_charge 2.45 V, cathode_V_discharge
+1.9 V, tag [P] until replaced by the reference cell's voltage profile), E0 the
+Kumaresan 2008 standard potentials and alpha signed: -0.5 reduction, +0.5
+oxidation. Because E0 decreases along the cascade (2.39, 2.24, 2.04, 2.01 V),
+the plateaus emerge from the BV factors: at 1.9 V the S8 step is driven by
+exp(0.5 * 0.49 / 0.0257) ~ 1.4e4, the last step by exp(0.5 * 0.11 / 0.0257)
+~ 8.5; at 2.45 V the order reverses. The absolute factors are large, but in a
+BKL only their ratios and the pool coupling (li_pool_max) decide the event
+split; the anode side keeps its own physical scale (74 s^-1 per site).
+Dissolution / precipitation keep the milestone-1 placeholders (0.05 / 0.02
+and 5.0 s^-1; Kumaresan's kS8 = 1.0 s^-1 is the only literature anchor and
+refers to S8(s), which the S8-unit lattice does not dissolve as such).

@@ -1,0 +1,64 @@
+# fullcell_physical: Li-S full cell with PHYSICALLY BASED kinetics on both
+# electrodes (docs/KINETICS_TABLE.md): Butler-Volmer plating/stripping from the
+# measured j0, CE-anchored electrolyte reduction, cathode cascade with the
+# standard potentials of Kumaresan 2008 and exchange rates of Marinescu 2016,
+# shuttle from Mikhaylik 2004. Thin cathode (N/P ~ 0.7). Half-cycle = 800 events.
+seed 8597
+temperature 298
+saltMolar 1.2
+solvMolar 6.5
+scanIntervalType time
+potentialType step
+scanInterval 3600
+maxInterval 800
+BeginV 4.4
+EndV 2.8
+totalSteps 100000
+maxCycles 200
+printStepFreq 1
+XYZprintFreq 500
+snapshotEveryCycles 20
+checkpointEveryCycles 20
+globalA 0.5
+numberDecompositionRxns 25
+nMobilityReactions 3
+# ---- Li-S coupling (new) ---------------------------------------------------
+li_pool_mode shared
+li_pool_init -1
+reservoir_sites 2000
+# anode bulk foil: 0 = NO hidden Li reservoir. The anode Li inventory is the
+# lattice slab only (conservative anode: stripping thins it, plating rebuilds
+# it). With -1 (legacy semi-infinite foil) the framework refilled every
+# stripped vacancy and the slab inflated by the plated amount every cycle,
+# drying the electrolyte in ~10 cycles (smoke test 2026-09-23). N/P is set by
+# the slab thickness in GEOMETRY.in.
+li_bulk_init 0
+# ---- structural brakes (2026-09-21) ----------------------------------------
+# li_pool_max: 2 * li_pool0 (74 Li+ in this box) -> mean-field current
+# coupling of the two electrodes (no stripping / cathodic oxidation when the
+# electrolyte cannot take more Li+). stop_electrolyte_fraction: clean stop
+# when ETH+SOL+FSI fall below 5 % of the initial count (cell dried out).
+li_pool_max 148
+stop_electrolyte_fraction 0.05
+stop_anode_inactive_halves 6
+# ---- physically based anode kinetics (see cases/anode_physical) -------------
+anode_kinetics bv
+bv_k0_site 74
+bv_alpha 0.5
+eta_charge -0.03
+eta_discharge 0.03
+# ---- physically based cathode kinetics ------------------------------------
+# REGION cathode rates evaluated at the cathode potential of the half-cycle:
+# charge plateau 2.45 V, discharge cut-off region 1.9 V (vs Li/Li+); typical
+# Li-S plateaus (Kumaresan 2008 Fig. 1; Marinescu 2016 Fig. 2). Tag [P] for
+# the exact values, to be replaced by the cell voltage of the reference data.
+cathode_kinetics bv
+cathode_V_charge 2.45
+cathode_V_discharge 1.9
+# ---- cycling protocol -------------------------------------------------------
+# The cell is assembled charged (Li anode + S8 cathode): the first half-cycle
+# is a discharge. A half-cycle also ends after 50 consecutive events without
+# Li transfer (zero-current cut-off), so the event budget is not spent on
+# electrolyte decomposition once the cathode is fully converted.
+first_half end
+end_half_when_idle 50

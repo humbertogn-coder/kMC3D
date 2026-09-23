@@ -1,5 +1,21 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-23
+- Cycling protocol keywords (opt-in): first_half end (start with a discharge)
+  and end_half_when_idle N (zero-current cut-off: the half-cycle ends after N
+  consecutive events without Li transfer). Legacy path byte-identical.
+- fullcell_physical smoke test: steady cycling (see MODEL_NOTES milestone 3).
+  Case set to li_bulk_init 0 and anode 40.4 A (N/P ~ 1.4).
+- cathode_kinetics bv (opt-in): REGION cathode reactions evaluated at the
+  cathode potential of the half-cycle (cathode_V_charge / cathode_V_discharge)
+  through the existing Arrhenius-Butler-Volmer term; alpha is signed by the
+  electron direction (negative reduction, positive oxidation). Legacy path
+  byte-identical (both validation cases).
+- cases/fullcell_physical: thin-cathode full cell with BV anode (j0 Boyle
+  2020, CE-anchored side rates), BV cathode cascade (E0 Kumaresan 2008 Table
+  II, k0 per site from Marinescu 2016 iH,0 / iL,0), shuttle 0.01 (Mikhaylik
+  2004), CEI, brakes and stops; 800-event half-cycles.
+
 ## 2026-09-22 (post-processing)
 - kmc3d/compare_runs.py + postprocess/compare_halfcell.py: side-by-side
   figure of half-cell runs from Data2Excel.txt (original C++ output included):
