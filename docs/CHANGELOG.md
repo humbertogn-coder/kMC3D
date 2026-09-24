@@ -1,5 +1,33 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-24
+- Stall detection (PARAMETERS.in: stall_attempts 200, stall_reruns 10000,
+  stall_p_accept_min 1e-4). A step that cannot fire any event used to retry up
+  to 1000 electrolyte refreshes and 100000 rejected slow draws, each a full
+  reaction scan (hours of wall time in the GRACE runs of 2026-09-23), then die
+  with a traceback. It now ends the run cleanly with a diagnostic line
+  ("Simulation stalled: ... W=..., Li+ pool=..., plating-eligible sites=...")
+  and the normal "Simulation terminated". A draw is declared hopeless at once
+  when 1 - exp(-W scanInterval/5) < stall_p_accept_min. Both validation cases
+  byte-identical (they never reach the limits).
+- cycle_stats.csv is written atomically (temp file + rename) so a failed
+  write can no longer leave an empty file (4 of 5 anode_physical seeds and 1
+  fullcell_physical seed came back with 0-byte ledgers). CycleLedger.
+  from_checkpoint_meta and cycles.recover_cycle_stats rebuild the csv from
+  checkpoint.npz.json; summarize_case does it automatically.
+- cycles.per_cycle pairs discharge/charge halves by the phase label (runs
+  with first_half end start with a discharge; the parity rule gave Q = 0),
+  and initial_s8_sites uses the cathode site count for such runs.
+- fullcell_physical: SOL2 (F5DEE on Li2O) re-anchored to the CE family with
+  the Tan 2024 barrier as relative attenuation (0.25 exp(-0.364/kT); it was
+  kT/h exp(-0.364/kT) = 4.5e6 s^-1, an inexhaustible F5DEE sink: 2950 F/F5D
+  sites in 8 cycles buried the anode, see MODEL_NOTES 0002). Same change in
+  anode_physical and anode_physical_A100 (x A_SEI). end_half_when_idle 50 -> 10.
+- anode_physical / anode_physical_A100: li_pool_mode shared + li_bulk_init 0
+  (finite anode). Run 1 in legacy fixed mode grew the slab 1150 -> 6100 sites
+  with zero net plating (foil refill + plating on top) and filled the box by
+  half-cycle 116-151, stalling 4 of 5 seeds (MODEL_NOTES 0002).
+
 ## 2026-09-23
 - Cycling protocol keywords (opt-in): first_half end (start with a discharge)
   and end_half_when_idle N (zero-current cut-off: the half-cycle ends after N

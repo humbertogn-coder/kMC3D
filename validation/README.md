@@ -67,3 +67,6 @@ Change log of validated engine changes:
               856. Reference regenerated from this run.
 * 2026-09-21  brakes li_pool_max / stop_electrolyte_fraction: both cases
               byte-identical with the keywords absent.
+* 2026-09-24  stall detection (stall_attempts / stall_reruns /
+              stall_p_accept_min) and atomic cycle_stats.csv write: both
+              cases byte-identical (the limits are never reached).

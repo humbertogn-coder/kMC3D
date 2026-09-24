@@ -283,14 +283,33 @@ class CycleLedger:
         ce_li = self._ce_shuttle()
 
         path = os.path.join(out_root, "cycle_stats.csv")
-        with open(path, "w") as fh:
+        # Atomic write: build the file next to the target and rename it into
+        # place, so a write that fails half way (disk quota, kill, file system
+        # hiccup) never leaves a truncated or empty cycle_stats.csv behind.
+        # The previous complete file survives until the new one is ready.
+        tmp = path + ".tmp"
+        with open(tmp, "w") as fh:
             fh.write(",".join(cols + ["CE_cycle", "CE_mod", "CE_shuttle"]) + "\n")
             for i, r in enumerate(self.rows):
                 vals = [str(r.get(c, "")) for c in cols]
                 for arr in (ce, ce_mod, ce_li):
                     vals.append("" if np.isnan(arr[i]) else f"{arr[i]:.6f}")
                 fh.write(",".join(vals) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
         return path
+
+    @classmethod
+    def from_checkpoint_meta(cls, meta: dict) -> "CycleLedger":
+        """Rebuild a ledger from the JSON side file of a checkpoint
+        (checkpoint.npz.json), which stores the rows closed so far. Used to
+        recover cycle_stats.csv when the run died before writing it."""
+        led = cls()
+        led.rows = list(meta.get("ledger_rows", []))
+        led._prevR = meta.get("ledger_prevR")
+        led._half_index = meta.get("ledger_half_index", len(led.rows))
+        return led
 
     # one electron per decomposition event (FSI plates 1 Li into the SEI;
     # SFO/SOL/SOL2/F5D are electrolyte reductions)

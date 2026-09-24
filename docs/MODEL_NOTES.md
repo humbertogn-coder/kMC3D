@@ -38,6 +38,25 @@ PARAMETERS.in
     stop_anode_inactive_halves  0 = off. N > 0: stop after N consecutive
                      half-cycles with zero plating and zero stripping (anode
                      dead; the cathode alone exchanging pool Li+ is not cycling).
+    anode_kinetics   legacy | bv. bv: Butler-Volmer plating/stripping with
+                     bv_k0_site (74 s^-1), bv_alpha (0.5), eta_charge (-0.03 V),
+                     eta_discharge (+0.03 V); one aggregated plating candidate
+                     (k x eligible growth sites). docs/ANODE_KINETICS.md.
+    cathode_kinetics legacy | bv. bv: REGION cathode rates evaluated at
+                     cathode_V_charge / cathode_V_discharge with signed alpha.
+    first_half       begin (legacy, charge first) | end (discharge first)
+    end_half_when_idle  0 = off. N: the half-cycle ends after N consecutive
+                     events without Li transfer (zero-current cut-off).
+                     fullcell_physical uses 10 (50 in run 1 let a trickle of
+                     cathode release keep dead charge halves alive).
+    stall_attempts   200 (retries with electrolyte refresh when no event can fire)
+    stall_reruns     10000 (rejected slow draws, dt > scanInterval/5, per step)
+    stall_p_accept_min 1e-4 (a draw is hopeless when 1 - exp(-W scanInterval/5)
+                     is below this). Reaching any limit ends the run cleanly
+                     with a "Simulation stalled" diagnostic (W, pool, eligible
+                     plating sites, electrolyte). Legacy values were 1000 /
+                     100000 with a traceback; the reference cases never reach
+                     them, so their output is unchanged.
 GEOMETRY.in
     cathode_access_fraction      1.0 = all cathode sites convert; < 1.0 draws a
                                  static contact mask at cell creation (point 4, static)
@@ -182,6 +201,34 @@ refilled stripped vacancies and inflated the slab by the plated amount every
 cycle) and the charge-first protocol (a cell assembled charged must discharge
 first, otherwise the event budget of the first half goes to electrolyte
 decomposition).
+
+0002. RUN 1 OF THE PHYSICAL CASES (GRACE, 5 seeds each, 2026-09-23/24).
+   anode_physical (half cell, 152 half-cycles): side fraction 4 to 6 x 10^-3
+   decompositions per plating, stable over 150 half-cycles (CE_cycle 1.00;
+   original C++ engine: 1 to 2 decompositions per plating). Li metal sites
+   grow 1150 -> 5900 in both engines with net plating ~0: this is the
+   framework fill of the semi-infinite foil (legacy behaviour, kept for the
+   half cell). One seed finished (1.5 h); four stalled at half-cycle 116-151
+   while plating: the last frames show 6114 Li sites of 6000 BC sites (plus
+   BA/OC), 3 ETH sites left. The semi-infinite foil had filled the whole box,
+   so no electrolyte-facing site remained (this is the "cell consumed" end
+   of the original engine). The stall then burned 4 h in the retry loop and
+   the final ledger write failed (0-byte cycle_stats.csv), which motivated
+   the stall detection, the atomic write and the recovery. Fix for the
+   physical half cell: li_pool_mode shared + li_bulk_init 0 (finite anode,
+   as in fullcell_physical); bench test: nLi 1150 <-> 1100, pool 27 <-> 77,
+   li_total exact, steady. The legacy fixed mode stays for the antecedent.
+   fullcell_physical (10x10x30, N/P 1.4, 800 events per half): capacity
+   560 to 610 mAh/g_S (35 % utilisation, event-budget limited) with
+   CE_cathode 0.99 to 1.00 for 5 to 9 cycles and exact conservation; then the
+   anode is buried by SOL2 (F5DEE on Li2O): 53, 239, 700, 668 ... events per
+   charge half once the first O sites exist, 2950 F/F5D sites by cycle 13,
+   stripping stops, the discharge halves end idle, and the run stops at
+   W = 0 ("no acceptable reaction", 3 seeds) or hangs (2 seeds). Cause: the
+   kT/h prefactor made SOL2 4.5e6 s^-1 per site, 2e5 times the aggregated
+   plating rate, and the idle cut-off (50) was kept alive by a trickle of
+   cathode release. Fixes: SOL2 anchored to the SOL prefactor with Tan's
+   barrier as relative attenuation, end_half_when_idle 10. To re-run.
 
 0000. SERIES 2 RESULT (fullcell_cei, corrected engine, 5 seeds, 200 half-
    cycles, 2026-09-21): conservation exact; cathode survives (425/700 sites at

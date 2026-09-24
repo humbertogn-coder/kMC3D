@@ -7,7 +7,13 @@
 # two entries below are parsed but ignored. FSI / SFO / SOL: CE-anchored
 # (CE 0.998, Yu 2022) with candidate multiplicities of the 10x10x30 box:
 # k_FSI 19, k_SFO 0.19, k_SOL 0.25 s^-1 per adjacent site [V-derived].
-# SOL2: kT/h prefactor with Ea 0.364 eV (Tan 2024) [V].
+# SOL2 (F5DEE on Li2O): SAME CE-anchored prefactor as SOL (0.25 s^-1 per
+# adjacent site) with the Tan 2024 barrier 0.364 eV as the RELATIVE attenuation
+# of the Li2O route vs the Li route (barrierless on Li): k = 0.25 exp(-0.364/kT)
+# = 1.8e-7 s^-1 [V-derived]. The previous kT/h prefactor (6.2e12) gave 4.5e6
+# s^-1 per site: an inexhaustible sink that buried the anode under F/F5D once
+# the first O sites appeared (fullcell_physical run 1, 2950 SEI sites in 8
+# cycles). Upper bound for sensitivity: Ea 0.000 (Li2O as reactive as Li).
 Plating 1
 1 1E-4 0.000 0.0 -3.04
 PlatingSEI 1
@@ -19,7 +25,7 @@ SFO 1
 SOL 1
 1 0.25 0.000 0.0 -3.04
 SOL2 1
-1 6.2E12 0.364 0.0 -3.04
+1 0.25 0.364 0.0 -3.04
 # ---- cathode cascade, Butler-Volmer at the cathode potential (cathode_kinetics bv)
 # format: sigma k0 Ea alpha E0. k0 per site from exchange current densities
 # (k0 = i0 A_site / e, A_site 4e-20 m2): high plateau iH,0 = 10 A/m2 -> 2.5 s^-1,

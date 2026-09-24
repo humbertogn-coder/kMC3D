@@ -198,6 +198,8 @@ class Engine:
         self.cath_V_d = float(getattr(params, "cathode_V_discharge", 1.9))
         self.anode_dead = False
         self.dried_out = False
+        self.stalled = False      # set by step() when no event can fire
+        self._last_W = 0.0        # total non-diffusion rate of the last scan
         self.pool_full_blocks = 0          # audit: candidate sets pruned by the cap
         self.li_consumed = 0      # Li+ consumed by cathode reduction (bookkeeping)
         self.li_released = 0      # Li+ released by cathode oxidation (bookkeeping)
@@ -1205,9 +1207,11 @@ class Engine:
                 cand_w.append(sr); cand_dest.append(-1)
 
         if not cand_w:
+            self._last_W = 0.0
             return False
         w = np.array(cand_w, dtype=float)
         W = w.sum()
+        self._last_W = float(W)
         if W <= 0:
             return False
         dt = self._draw_dt(W)
@@ -1269,7 +1273,10 @@ class Engine:
         fired = False
         attempts = 0
         reruns = 0
-        while not fired and attempts < 1000 and reruns < 100000:
+        max_attempts = int(getattr(self.p, "stall_attempts", 200))
+        max_reruns = int(getattr(self.p, "stall_reruns", 10000))
+        p_min = float(getattr(self.p, "stall_p_accept_min", 1e-4))
+        while not fired and attempts < max_attempts and reruns < max_reruns:
             if self.stop < self.MaxToStop:
                 self.stop += 1
                 fired = self.diffusion_step()
@@ -1288,14 +1295,20 @@ class Engine:
                     # advancing the step or counting a failed attempt.
                     fired = False
                     reruns += 1
+                    # hopeless: the expected waiting time 1/W is so far beyond
+                    # scanInterval/5 that (almost) every draw will be rejected
+                    p_acc = 1.0 - np.exp(-self._last_W * self.p.scanInterval / 5.0)
+                    if p_acc < p_min:
+                        reruns = max_reruns
                     continue
                 if not fired:
                     self.flushElectrolyte(); self.updateEther()
                     self.addSolvent(); self.addLithiumSalt(); self.updateCharges()
                     attempts += 1
-        if attempts >= 1000 or reruns >= 100000:
-            self.out.log("Simulation reached failure (no acceptable reaction)")
-            raise RuntimeError("kMC stalled: no available reactions")
+        if attempts >= max_attempts or reruns >= max_reruns:
+            self._log_stall(attempts, reruns)
+            self.stalled = True
+            return
 
         # post-event framework maintenance
         self.flushElectrolyte()
@@ -1316,6 +1329,22 @@ class Engine:
 
         if self.p.XYZprintFreq > 0 and self.currentStep % self.p.XYZprintFreq == 0:
             self._write_xyz(); self.countOandF()
+
+    def _log_stall(self, attempts, reruns):
+        """Diagnostic line for a run that cannot fire any event."""
+        self._refresh_counts()
+        elig = self._eligible_BC() & (self.nETH > 0) & (self.nLi >= 2) & (self.nLi <= 5)
+        n_li = int(((self.occ == 1) & (self.spc == self.cLi)).sum())
+        W = float(getattr(self, "_last_W", 0.0))
+        wait = (1.0 / W) if W > 0 else float("inf")
+        self.out.log(
+            "Simulation stalled: no event can fire "
+            f"(attempts={attempts}, rejected draws={reruns}) at step {self.currentStep}, "
+            f"half-cycle {self.cycleNumber}, V={self.presentV}. Total non-diffusion rate "
+            f"W={W:.3e} s^-1 (expected waiting time {wait:.3e} s, limit "
+            f"{self.p.scanInterval / 5.0:.0f} s). Li+ pool={getattr(self, 'li_pool', 'n/a')}, "
+            f"Li metal sites={n_li}, plating-eligible sites={int(elig.sum())}, "
+            f"electrolyte sites={self._electrolyte_count()}. Stopping.")
 
     # --------------------------------------------------------------- logging
     def _row(self):
@@ -1394,6 +1423,8 @@ class Engine:
             while (self.currentStep <= self.p.totalSteps
                    and self.cycleNumber <= self.p.maxCycles):
                 self.step()
+                if self.stalled:
+                    break
                 if self.stop_anode_halves > 0 and self.cycleNumber != last_stop_check:
                     cur = _anode_events()
                     anode_idle = anode_idle + 1 if cur == anode_prev else 0

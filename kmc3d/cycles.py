@@ -78,8 +78,14 @@ def conservation_report(t: Dict[str, np.ndarray]) -> Dict[str, object]:
 
 
 def initial_s8_sites(t: Dict[str, np.ndarray]) -> int:
-    """S8 sites at the first half-cycle close (cathode not yet cycled)."""
-    if "cat_S8" in t and not np.isnan(t["cat_S8"][0]):
+    """S8 sites of the pristine cathode. When the run starts with a charge
+    (legacy first_half=begin) the first ledger row still holds the pristine
+    cathode; when it starts with a discharge (first_half=end) the first row
+    is already partly reduced, so the total cathode site count is used (the
+    cathode is built from S8 only)."""
+    phase = t.get("phase")
+    starts_discharging = phase is not None and phase.size and str(phase[0]).startswith("dis")
+    if not starts_discharging and "cat_S8" in t and not np.isnan(t["cat_S8"][0]):
         return int(t["cat_S8"][0])
     if "n_cathode" in t:
         return int(t["n_cathode"][0])
@@ -100,7 +106,15 @@ def per_cycle(t: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
                       "n_ETH", "n_cathode_blocked", "s_cei", "li_cei",
                       "n_Li_dead", "sei_thickness", "surface_roughness")}
     n = 0
-    for i in range(1, n_half, 2):          # discharge halves
+    # discharge halves are identified by the phase label, so runs that start
+    # with a discharge (first_half=end) pair correctly; each discharge is
+    # paired with the charge half that follows it
+    phase = t.get("phase")
+    if phase is not None and phase.size == n_half:
+        dis_idx = [i for i in range(n_half) if str(phase[i]).startswith("dis")]
+    else:
+        dis_idx = list(range(1, n_half, 2))
+    for i in dis_idx:
         j = i + 1                           # following charge half
         Qd = float(dis[i]) if not np.isnan(dis[i]) else 0.0
         Qc = float(rel[j]) if j < n_half and not np.isnan(rel[j]) else np.nan
@@ -112,7 +126,11 @@ def per_cycle(t: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
             v = t[k][i]
             passthrough[k].append(v if not np.isnan(v) else (t[k][j] if j < n_half else np.nan))
         for k in extra:                     # state at the end of the discharge
-            extra[k].append(t[k][i])
+            # the ledger leaves a species column empty in halves where the
+            # species is absent: that is a count of 0, not missing data (a NaN
+            # here would bias the multi-seed nanmean upwards)
+            v = t[k][i]
+            extra[k].append(0.0 if np.isnan(v) else v)
         n += 1
     out = {"cycle": np.array(cyc), "Q_dis": np.array(qd), "Q_ch": np.array(qc),
            "CE_cathode": np.array(ce), "capacity_mAh_g": np.array(cap),
@@ -129,8 +147,42 @@ def per_cycle(t: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
     return out
 
 
-def load_case(case_dir: str, pattern: str = "runs/seed_*/cycle_stats.csv"):
-    """All seeds of a case -> {seed: per_cycle table}, plus conservation."""
+def recover_cycle_stats(run_dir: str, force: bool = False) -> Optional[str]:
+    """Rebuild <run_dir>/cycle_stats.csv from checkpoint.npz.json when the
+    csv is missing or empty (run killed or write failed after the last
+    checkpoint). The rows cover the half-cycles closed up to that checkpoint,
+    never beyond it. Returns the csv path, or None when nothing could be
+    recovered."""
+    import json
+    from .stats import CycleLedger
+
+    csv_path = os.path.join(run_dir, "cycle_stats.csv")
+    meta_path = os.path.join(run_dir, "checkpoint.npz.json")
+    have_csv = os.path.exists(csv_path) and os.path.getsize(csv_path) > 0
+    if have_csv and not force:
+        return csv_path
+    if not os.path.exists(meta_path):
+        return None
+    with open(meta_path) as fh:
+        meta = json.load(fh)
+    led = CycleLedger.from_checkpoint_meta(meta)
+    if not led.rows:
+        return None
+    path = led.finalize(run_dir)
+    print(f"[recover] {csv_path}: rebuilt {len(led.rows)} half-cycles from "
+          f"checkpoint.npz.json (run did not write its ledger)")
+    return path
+
+
+def load_case(case_dir: str, pattern: str = "runs/seed_*/cycle_stats.csv",
+              recover: bool = True):
+    """All seeds of a case -> {seed: per_cycle table}, plus conservation.
+    With recover=True, seeds whose cycle_stats.csv is empty or missing are
+    rebuilt from their checkpoint side file first."""
+    run_glob = os.path.join(case_dir, os.path.dirname(pattern))
+    if recover:
+        for run_dir in sorted(glob.glob(run_glob)):
+            recover_cycle_stats(run_dir)
     paths = sorted(glob.glob(os.path.join(case_dir, pattern)))
     seeds, reports = {}, {}
     for p in paths:

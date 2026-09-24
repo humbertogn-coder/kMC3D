@@ -22,7 +22,16 @@ checkpointEveryCycles 20
 globalA 0.5
 numberDecompositionRxns 6
 nMobilityReactions 3
-li_pool_mode fixed
+# ---- Li inventory: finite anode (2026-09-24) ---------------------------------
+# li_pool_mode shared + li_bulk_init 0: the Li+ pool is the only Li source for
+# plating, stripping returns Li+ to it, and the framework fill may NOT create
+# Li from a semi-infinite foil. In run 1 (legacy fixed mode) the foil refilled
+# every stripped vacancy while plating added on top, so the slab grew 1150 ->
+# 6100 sites with zero net plating and filled the whole box by half-cycle
+# 116-151 (4 of 5 seeds stalled: no electrolyte-facing site left). The original
+# C++ engine shows the same growth (2266 -> 8948); it is kept as the antecedent.
+li_pool_mode shared
+li_bulk_init 0
 # ---- physically based anode kinetics (opt-in) -----------------------------
 # k0_site = j0 * A_site / e with j0 = 29.8 mA/cm2 (LiFSI in DME, Boyle et al.
 # ACS Energy Lett. 2020, 5, 701, Table 1) and A_site = (2.0 A)^2 -> 74 s^-1.

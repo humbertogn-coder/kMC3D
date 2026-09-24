@@ -178,6 +178,21 @@ class Parameters:
     #                spent on side reactions once the electrochemistry is done.
     first_half: str = "begin"
     end_half_when_idle: int = 0
+    # ---- stall detection ----------------------------------------------------
+    #   A kMC step retries when no event can fire: the electrolyte is refreshed
+    #   and the reaction scan repeated (stall_attempts), and a selected slow
+    #   event with a waiting time above scanInterval/5 is rejected and redrawn
+    #   (stall_reruns, C++ behaviour). Every retry costs a full reaction scan,
+    #   so a dead cell used to burn hours before the run gave up. The run now
+    #   ends cleanly ("stalled") when either budget is spent, or at once when
+    #   the total non-diffusion rate W is so small that the acceptance
+    #   probability 1 - exp(-W scanInterval/5) is below stall_p_accept_min
+    #   (expected waiting time far beyond a half-cycle: nothing can happen).
+    #   The reference validations never reach these limits, so their output
+    #   is unchanged.
+    stall_attempts: int = 200
+    stall_reruns: int = 10000
+    stall_p_accept_min: float = 1e-4
 
     # field name -> caster
     _CAST = {
@@ -194,6 +209,7 @@ class Parameters:
         "eta_charge": float, "eta_discharge": float,
         "cathode_kinetics": str, "cathode_V_charge": float, "cathode_V_discharge": float,
         "first_half": str, "end_half_when_idle": int,
+        "stall_attempts": int, "stall_reruns": int, "stall_p_accept_min": float,
     }
 
     @classmethod

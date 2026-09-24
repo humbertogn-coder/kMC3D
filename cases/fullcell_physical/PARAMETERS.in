@@ -57,8 +57,11 @@ cathode_V_charge 2.45
 cathode_V_discharge 1.9
 # ---- cycling protocol -------------------------------------------------------
 # The cell is assembled charged (Li anode + S8 cathode): the first half-cycle
-# is a discharge. A half-cycle also ends after 50 consecutive events without
+# is a discharge. A half-cycle also ends after 10 consecutive events without
 # Li transfer (zero-current cut-off), so the event budget is not spent on
-# electrolyte decomposition once the cathode is fully converted.
+# electrolyte decomposition once the cathode is fully converted. 10 is safe:
+# with a side fraction of ~0.5 % the chance of 10 consecutive non-transfer
+# events in an active half is ~1e-23 (it was 50 in run 1, which let a trickle
+# of cathode release keep dead charge halves alive for hundreds of events).
 first_half end
-end_half_when_idle 50
+end_half_when_idle 10

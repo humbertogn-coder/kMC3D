@@ -1,7 +1,7 @@
 # DECOMPOSITION.in - anode_physical_A100: anode_physical with the SEI
 # ACCELERATION FACTOR A_SEI = 100 applied to the three electrolyte-reduction
-# channels (FSI, SFO, SOL) ONLY. Plating, stripping (BV block) and SOL2 (DFT
-# barrier) are NOT accelerated. Purpose: SEI morphology studies; each simulated
+# channels (FSI, SFO, SOL, SOL2). Plating and stripping (BV block) are NOT
+# accelerated. Purpose: SEI morphology studies; each simulated
 # cycle deposits the SEI of ~100 physical cycles (docs/KINETICS_TABLE.md, sec. 7).
 # Basis of the reference values: docs/KINETICS_TABLE.md
 # format: <NAME> <nChannels> then per channel: sigma k0 Ea alpha E0
@@ -41,8 +41,12 @@ SFO 1
 1 19 0.000 0.0 -3.04
 SOL 1
 1 25 0.000 0.0 -3.04
-# F5DEE on Li2O: Ea 0.364 eV (Tan 2024 Fig. 4, DFT/NEB) with the transition-
-# state prefactor kT/h = 6.2e12 s^-1 at 298 K [V]. Fires whenever a solvent
-# site touches an O (Li2O) site: F5DEE decomposes readily on Li2O (Tan 2024).
+# F5DEE on Li2O (SOL2): candidates are solvent sites touching an O (Li2O)
+# site. Same CE-anchored prefactor as SOL x A_SEI (25 s^-1) with the Tan 2024
+# DFT/NEB barrier 0.364 eV as the relative attenuation of the Li2O route vs
+# the barrierless Li route: k = 0.25 exp(-0.364/kT) = 1.8e-7 s^-1 [V-derived].
+# The kT/h prefactor used before (6.2e12 -> 4.5e6 s^-1 per site) is an
+# elementary-step rate, not an effective electrode rate: in the full cell it
+# made every O site an inexhaustible F5DEE sink (see docs/CHANGELOG.md).
 SOL2 1
-1 6.2E12 0.364 0.0 -3.04
+1 25 0.364 0.0 -3.04
