@@ -10,6 +10,9 @@
   and the normal "Simulation terminated". A draw is declared hopeless at once
   when 1 - exp(-W scanInterval/5) < stall_p_accept_min. Both validation cases
   byte-identical (they never reach the limits).
+- slurm/goKMC_prod_array.slrm: after the time-limit trap, bash `wait` returned
+  before python had exited and SLURM killed python mid-write (sacct: COMPLETED
+  at limit - 5 min; 0-byte ledgers). The script now waits until python is gone.
 - cycle_stats.csv is written atomically (temp file + rename) so a failed
   write can no longer leave an empty file (4 of 5 anode_physical seeds and 1
   fullcell_physical seed came back with 0-byte ledgers). CycleLedger.

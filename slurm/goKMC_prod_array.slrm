@@ -33,6 +33,11 @@
 # reliably to a foreground python child. --signal=B:USR1@300 sends USR1 to
 # this shell 5 min before the limit; the trap below forwards SIGTERM to python,
 # whose handler flushes the ledger and a final checkpoint (run.py).
+# IMPORTANT: bash's `wait` returns as soon as the trap runs, BEFORE python has
+# exited. If the script then ends, SLURM kills python while it is still writing
+# (run 1, 2026-09-23: 0-byte cycle_stats.csv, log not flushed, jobs reported
+# COMPLETED 5 min before the limit). The wait loop below keeps the shell alive
+# until python has really exited.
 # ---------------------------------------------------------------------------
 module purge
 module load GCCcore/13.2.0
@@ -73,4 +78,9 @@ PID=$!
 trap 'echo "time limit near: forwarding SIGTERM to python $PID"; kill -TERM $PID' USR1 TERM
 wait $PID
 STATUS=$?
+# `wait` also returns when the trap fires: keep waiting while python is alive
+while kill -0 $PID 2>/dev/null; do
+    wait $PID
+    STATUS=$?
+done
 echo "kmc3d seed ${SEED} finished with status $STATUS at $(date)"
