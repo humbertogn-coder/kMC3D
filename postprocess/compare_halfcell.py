@@ -12,6 +12,7 @@ contain '=' as long as the path is the part after the LAST '=').
 """
 import os
 import sys
+import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from kmc3d.compare_runs import load_run, compare_figure   # noqa: E402
@@ -27,8 +28,9 @@ def main():
         runs[label] = load_run(path)
     print(compare_figure(runs, out, title="Li-metal half cell: engine comparison"))
     for k, r in runs.items():
+        li = r['li_metal'][np.isfinite(r['li_metal'])]   # last half may lack a ledger row
         print(f"{k}: halves {r['half'].size}, plating {r['plating'][-1]}, stripping {r['stripping'][-1]}, "
-              f"decomposition {r['decomposition'][-1]}, Li {r['li_metal'][0]} -> {r['li_metal'][-1]}")
+              f"decomposition {r['decomposition'][-1]}, Li {int(li[0])} -> {int(li[-1])}")
     return 0
 
 

@@ -1,5 +1,6 @@
 # ---- simulation outputs (never versioned; they live on /scratch or locally) ----
 runs/
+runs_series*/
 out_test/
 val_out/
 *.xyz

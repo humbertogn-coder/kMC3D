@@ -10,7 +10,11 @@ Per half-cycle: Li metal count, cumulative plating / stripping / electrolyte
 decomposition events, and per cycle CE_cycle = stripping / plating events.
 Data2Excel columns (0-based, both engines): 3 half-cycle, 14 RxnPlating,
 15 RxnStripping, 17 FSI, 18 SFO, 19 SOL, 20 F5D, 21 SOL2, 22 PlatingSEI,
-23 LiMetal.
+23 LiMetal. The legacy LiMetal counter excludes Li sites flagged as ionised
+(within minR of an SEI species), so under a thick SEI it undercounts the Li
+on the lattice; when a cycle_stats.csv sits next to Data2Excel.txt (kmc3d
+runs) its n_Li column (all Li sites) is used instead, per half-cycle. The
+original C++ run has no ledger, so its curve is the LiMetal counter.
 
     from kmc3d.compare_runs import load_run, compare_figure
     runs = {"original (C++)": load_run("Original_kMC/Data2Excel.txt"),
@@ -48,6 +52,14 @@ def load_run(path: str) -> Dict[str, np.ndarray]:
     last = np.array([a[a[:, 0] == h][-1] for h in halves])
     out = {"half": last[:, 0], "plating": last[:, 1] + last[:, 4], "stripping": last[:, 2],
            "decomposition": last[:, 3], "li_metal": last[:, 5]}
+    ledger = os.path.join(os.path.dirname(path), "cycle_stats.csv")
+    if os.path.exists(ledger) and os.path.getsize(ledger) > 0:
+        import csv
+        with open(ledger) as fh:
+            n_li = {int(float(r["half_index"])): float(r["n_Li"])
+                    for r in csv.DictReader(fh) if r.get("n_Li") not in (None, "")}
+        if n_li:
+            out["li_metal"] = np.array([n_li.get(int(h), np.nan) for h in out["half"]])
     # per cycle CE: stripping in discharge half (odd) / plating in the preceding charge half
     dpl = np.diff(np.concatenate([[0], out["plating"]]))
     dst = np.diff(np.concatenate([[0], out["stripping"]]))
@@ -80,7 +92,7 @@ def compare_figure(runs: Dict[str, Dict[str, np.ndarray]], out_path: str, title:
     fig.subplots_adjust(hspace=0.5, wspace=0.3, left=0.08, right=0.97, top=0.9, bottom=0.08)
     if title:
         fig.suptitle(title, x=0.08, ha="left", fontsize=12, color=INK)
-    panels = [("li_metal", "Li metal sites", "sites", axs[0, 0]),
+    panels = [("li_metal", "Li sites on the lattice", "sites", axs[0, 0]),
               ("decomposition", "Cumulative electrolyte decomposition events", "events", axs[0, 1]),
               ("side_fraction", "Decomposition events per plating event", "fraction", axs[1, 0])]
     for key, ttl, yl, ax in panels:

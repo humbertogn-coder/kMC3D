@@ -202,6 +202,63 @@ cycle) and the charge-first protocol (a cell assembled charged must discharge
 first, otherwise the event budget of the first half goes to electrolyte
 decomposition).
 
+0003. RUN 2 OF THE PHYSICAL CASES (GRACE, 5 seeds each, 2026-09-24/27).
+   All 15 runs closed cleanly (5 "Simulation terminated", 10 "Interrupted"
+   at the time limit with ledger and checkpoint flushed); conservation exact.
+   anode_physical (finite anode, 153 half-cycles, 1.4 h per seed): Li 1150
+   <-> 1100, pool 27 <-> 77, 18 decompositions per 3832 platings (0.47 %,
+   the CE anchor), 40 SEI sites after 76 cycles. Reference half cell of the
+   physical line. Figure cases/anode_physical/analysis/
+   halfcell_original_vs_physical_run2.png.
+   anode_physical_A100 (A_SEI 100, 25 to 115 half-cycles in 6 h): 16 % side
+   events per plating, SEI 300 to 800 sites, film porosity 0.86 to 0.88,
+   roughness 3 to 4 A, 1 to 3 % of Li buried in 7 to 27 islands
+   (analysis/morphology.csv). Slow: 4 to 16 s per counted step because SEI
+   fragments diffuse (about 8 diffusion moves per reaction event, each a full
+   framework update); see the profile in item 0004.
+   fullcell_physical (10x10x30, 800 events per half, 75 to 89 half-cycles in
+   12 h): 550 to 600 mAh/g_S (35 % utilisation, event-budget limited) with
+   CE_cathode 0.99 to 1.01 for 13 cycles, then fade to ~10 mAh/g by cycle 37
+   (figure analysis/overview.png). Death mechanism, seed 8597: the Li flagged
+   as ionised by the legacy charge rule (a Li site within minR of an SEI
+   species, chg = 1) grows 24 -> 1670 of 1714 Li sites while neutral surface
+   Li (LiMetalS) falls 264 -> 13; stripping candidates require chg = 0, so
+   the discharge halves end idle and the cathode stays at S8. The anode is
+   NOT covered (electrolyte-facing Li rises 229 -> 870, the surface roughens):
+   it is deactivated site by site, about one Li per SEI fragment. Sources of
+   SEI: 5 to 15 electrolyte reductions per charge half = 1 to 2.5 % of
+   platings, 2 to 5 times the anchored 0.47 % of the half cell, because the
+   pool empties at the end of every charge (cathode fully oxidised) and a
+   trickle of Li release keeps the half alive while only side reactions can
+   fire (SFO second-step reductions reach 35 to 60 per half late in life).
+   Each event yields ~4 fragment sites, each ionising ~1 Li: ~8 % of the
+   transferred Li per cycle is deactivated against 0.2 to 0.5 % in the real
+   cell. Two conclusions: (1) the protocol needs a real cut-off: end the
+   charge half when the cathode has nothing left to oxidise and the discharge
+   half when it has nothing left to reduce (no candidate of the RELEASE_LI /
+   CONSUME_LI reactions), instead of an idle counter that a trickle resets;
+   (2) MODEL DECISION for the advisor: Li next to SEI fragments cannot be
+   stripped and plating needs an electrolyte neighbour, i.e. there is no Li+
+   transport through the SEI; every fragment permanently removes ~1 Li from
+   the active inventory. Options: through-SEI transfer with an attenuation
+   exp(-beta d) (KINETICS_TABLE, tunnelling row, [P]), or anchoring the side
+   rates on Li deactivated per cycle (fragments) instead of events (factor
+   ~4 lower). The three fullcell_physical checkpoints can be resumed but the
+   cells are dead; a run 3 needs (1) first.
+
+0004. SPEED PROFILE (cloud bench, 2 cores, 6 half-cycles, cProfile).
+   anode_physical: 0.41 s per counted step; A100: 0.077 s per step() call
+   but ~9 step() calls per counted step (SEI fragment diffusion moves), so
+   0.67 s per counted step on the bench and 4 to 16 s on GRACE as the SEI
+   grows. Hot spots (share of wall time): _count_all_classes 30 to 40 %
+   (neighbour class counts recomputed from scratch at every refresh, 15000 to
+   32000 calls), _eact_all 25 to 40 % (activation energies of every Li site
+   recomputed per diffusion scan), updateCharges 10 %, createEther 10 %,
+   _nonsei_mask rebuilt 324000 times inside the wrap fill loop (5 %). A
+   vectorisation pass (incremental neighbour counts, cached masks per step,
+   Eact only for candidate sites) should give 3 to 5x with byte-identical
+   output, to be validated on validation/ as every engine change.
+
 0002. RUN 1 OF THE PHYSICAL CASES (GRACE, 5 seeds each, 2026-09-23/24).
    anode_physical (half cell, 152 half-cycles): side fraction 4 to 6 x 10^-3
    decompositions per plating, stable over 150 half-cycles (CE_cycle 1.00;

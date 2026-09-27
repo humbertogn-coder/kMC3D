@@ -93,7 +93,10 @@ def buried_li(frame: Frame) -> Dict[str, object]:
         tree, pos = _tree(frame)
         cls = classify_array(frame.species)
         nb = tree.query_ball_point(pos[buried], NBR_CUTOFF)
-        flat = np.unique(np.concatenate([np.asarray(x, int) for x in nb])) if nb else np.array([], int)
+        # query_ball_point returns an object array of lists (or a 2-D array
+        # when every list has the same length): normalise before flattening
+        parts = [np.asarray(x, int).ravel() for x in nb]
+        flat = np.unique(np.concatenate(parts)) if parts else np.array([], int)
         flat = flat[frame.species[flat] != "Li"]
         for c in np.unique(cls[flat]):
             coating[str(c)] = int((cls[flat] == c).sum())

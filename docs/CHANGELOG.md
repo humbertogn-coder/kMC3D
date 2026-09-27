@@ -1,5 +1,16 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-27 (post-processing only, engine untouched)
+- cycles.per_cycle: species count columns missing in a half (species absent)
+  are 0, not NaN (the multi-seed nanmean was biased upwards; the cathode
+  panel summed to 123 of 100 sites).
+- compare_runs.load_run: uses n_Li from cycle_stats.csv when present. The
+  legacy LiMetal counter excludes ionised Li (within minR of an SEI species),
+  so it undercounts lattice Li under a thick SEI (A100: 78 of 995).
+- morphology.buried_li: query_ball_point result normalised (object array of
+  lists vs 2-D array) before flattening; morphology_case ran on A100.
+- Run 2 analysed: MODEL_NOTES 0003.
+
 ## 2026-09-24
 - Stall detection (PARAMETERS.in: stall_attempts 200, stall_reruns 10000,
   stall_p_accept_min 1e-4). A step that cannot fire any event used to retry up
