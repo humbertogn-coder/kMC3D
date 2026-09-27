@@ -193,6 +193,21 @@ class Parameters:
     stall_attempts: int = 200
     stall_reruns: int = 10000
     stall_p_accept_min: float = 1e-4
+    # ---- current-efficiency cut-off (opt-in) --------------------------------
+    #   end_half_min_ce  0 = off. f in (0, 1): the half-cycle ends when the
+    #   instantaneous current efficiency of the reaction scan,
+    #       CE_inst = W_transfer / (W_transfer + W_parasitic),
+    #   falls below f (evaluated after at least 10 events in the half).
+    #   W_transfer is the summed rate of every candidate that moves Li+
+    #   (plating, stripping, cathode CONSUME_LI / RELEASE_LI conversions) and
+    #   W_parasitic the summed rate of electrolyte decomposition, shuttle and
+    #   CEI candidates. It is the kMC analogue of the end-of-charge cut-off of
+    #   a CC-CV protocol: once the useful current has tapered to the level of
+    #   the parasitic current, a real cell stops. Without it the slow last
+    #   oxidation step (Li2S8 -> S8, E0 2.39 V at V_charge 2.45 V) keeps the
+    #   half alive while the SEI takes 15 to 40 % of the events
+    #   (fullcell_physical run 2, MODEL_NOTES 0003). Suggested 0.9.
+    end_half_min_ce: float = 0.0
 
     # field name -> caster
     _CAST = {
@@ -210,6 +225,7 @@ class Parameters:
         "cathode_kinetics": str, "cathode_V_charge": float, "cathode_V_discharge": float,
         "first_half": str, "end_half_when_idle": int,
         "stall_attempts": int, "stall_reruns": int, "stall_p_accept_min": float,
+        "end_half_min_ce": float,
     }
 
     @classmethod

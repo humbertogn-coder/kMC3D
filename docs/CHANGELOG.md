@@ -1,5 +1,16 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-27 (engine)
+- end_half_min_ce f (opt-in): current-efficiency cut-off. The half-cycle ends
+  when W_transfer / (W_transfer + W_parasitic) of the reaction scan falls
+  below f after 10 events; a scan without any Li-transfer candidate is CE 0
+  and ends the half instead of the run. Replaces the idle counter as the main
+  end-of-charge criterion (a trickle of cathode release kept dead charge halves
+  alive, MODEL_NOTES 0003). Both validation cases byte-identical with the
+  keyword absent. Small-box test: healthy halves never cut (CE_inst > 0.99);
+  a starved charge tail cut at CE_inst 0.69 (W_transfer 133, W_parasitic 59).
+  fullcell_physical set to 0.9.
+
 ## 2026-09-27 (post-processing only, engine untouched)
 - cycles.per_cycle: species count columns missing in a half (species absent)
   are 0, not NaN (the multi-seed nanmean was biased upwards; the cathode

@@ -120,6 +120,12 @@ class Engine:
         if str(getattr(params, "first_half", "begin")).lower() == "end":
             self.presentV = params.EndV          # start with a discharge
         self.idle_limit = int(getattr(params, "end_half_when_idle", 0))
+        # current-efficiency cut-off (end_half_min_ce): instantaneous CE of the
+        # last reaction scan, W_transfer / (W_transfer + W_parasitic)
+        self.min_ce = float(getattr(params, "end_half_min_ce", 0.0))
+        self._ce_inst = 1.0
+        self._W_tr = 0.0
+        self._W_par = 0.0
         self.idle_events = 0                     # consecutive non-Li-transfer events
         self.cycleNumber = 0
         self.currentStep = 0
@@ -865,14 +871,24 @@ class Engine:
     # ------------------------------------------------------------- the loops
     def _voltage_update(self):
         if self.p.potentialType == "step" and self.p.scanIntervalType == "time":
+            ce_cut = (self.min_ce > 0 and self.stepCurrentV >= 10
+                      and self._ce_inst < self.min_ce)
             if (self.timeCurrentV >= self.p.scanInterval
                     or self.stepCurrentV >= self.p.maxInterval
-                    or (self.idle_limit > 0 and self.idle_events >= self.idle_limit)):
+                    or (self.idle_limit > 0 and self.idle_events >= self.idle_limit)
+                    or ce_cut):
                 if self.idle_limit > 0 and self.idle_events >= self.idle_limit:
                     self.out.log(f"half-cycle {self.cycleNumber} ended idle after "
                                  f"{self.idle_events} events without Li transfer "
                                  f"(step {self.currentStep})")
+                elif ce_cut:
+                    self.out.log(f"half-cycle {self.cycleNumber} ended at the current-"
+                                 f"efficiency cut-off after {self.stepCurrentV} events: "
+                                 f"CE_inst={self._ce_inst:.3f} < {self.min_ce} "
+                                 f"(W_transfer={self._W_tr:.3e}, W_parasitic={self._W_par:.3e} s^-1, "
+                                 f"step {self.currentStep})")
                 self.idle_events = 0
+                self._ce_inst = 1.0
                 self.countOandF()
                 self._write_xyz()
                 self.ledger.close_half(self)
@@ -1208,12 +1224,20 @@ class Engine:
 
         if not cand_w:
             self._last_W = 0.0
+            if self.min_ce > 0:
+                self._W_tr = self._W_par = 0.0
+                self._ce_inst = 0.0          # no useful current at all
             return False
         w = np.array(cand_w, dtype=float)
         W = w.sum()
         self._last_W = float(W)
         if W <= 0:
+            if self.min_ce > 0:
+                self._W_tr = self._W_par = 0.0
+                self._ce_inst = 0.0
             return False
+        if self.min_ce > 0:
+            self._update_ce_inst(cand_types, w)
         dt = self._draw_dt(W)
         j = int(self.rng.choice(len(w), p=w / W))
         rtype = cand_types[j]; site = cand_sites[j]
@@ -1302,6 +1326,12 @@ class Engine:
                         reruns = max_reruns
                     continue
                 if not fired:
+                    # current-efficiency cut-off: a scan with no useful current
+                    # ends the half at the next step instead of burning the
+                    # retry budget (the flip happens in _voltage_update)
+                    if (self.min_ce > 0 and self.stepCurrentV >= 10
+                            and self._ce_inst < self.min_ce):
+                        return
                     self.flushElectrolyte(); self.updateEther()
                     self.addSolvent(); self.addLithiumSalt(); self.updateCharges()
                     attempts += 1
@@ -1329,6 +1359,38 @@ class Engine:
 
         if self.p.XYZprintFreq > 0 and self.currentStep % self.p.XYZprintFreq == 0:
             self._write_xyz(); self.countOandF()
+
+    _PARASITIC = ("FSI", "SFO", "SOL", "F5D", "SOL2")
+    _SURFACE_REGIONS = ("anode_surface", "cathode_surface")
+
+    def _update_ce_inst(self, cand_types, w):
+        """Instantaneous current efficiency of one reaction scan (opt-in,
+        end_half_min_ce). Li-transfer candidates: plating (aggregated or per
+        site), stripping, cathode conversions with CONSUME_LI / RELEASE_LI.
+        Parasitic candidates: electrolyte decomposition (legacy types) and
+        surface-region conversions (shuttle, CEI). Dissolution, precipitation
+        and surface diffusion count for neither."""
+        tr = 0.0
+        par = 0.0
+        regions = getattr(self, "_conv_region", None)
+        if regions is None:
+            regions = self._conv_region = {r.name: r.region for r in self.conv_rxns}
+        for t, wi in zip(cand_types, w):
+            if isinstance(t, tuple):
+                name = t[1]
+                if self._li_transfer.get(name, False):
+                    tr += wi
+                elif regions.get(name) in self._SURFACE_REGIONS:
+                    par += wi
+            elif t in ("Plating", "PlatingSEI", "LiStripping"):
+                tr += wi
+            elif t in self._PARASITIC:
+                par += wi
+        self._W_tr = float(tr)
+        self._W_par = float(par)
+        # no Li-transfer candidate at all = zero useful current (CE 0), even
+        # when nothing parasitic can fire either (the half is over)
+        self._ce_inst = tr / (tr + par) if tr > 0 else 0.0
 
     def _log_stall(self, attempts, reruns):
         """Diagnostic line for a run that cannot fire any event."""
@@ -1498,6 +1560,10 @@ class Engine:
         if self.idle_limit > 0:
             self.out.log(f"end_half_when_idle={self.idle_limit}: half-cycles end after that "
                          f"many consecutive events without Li transfer")
+        if self.min_ce > 0:
+            self.out.log(f"end_half_min_ce={self.min_ce}: half-cycles end when the instantaneous "
+                         f"current efficiency W_transfer/(W_transfer+W_parasitic) of the "
+                         f"reaction scan falls below it (after 10 events)")
         if self.cath_bv:
             self.out.log(f"cathode_kinetics=bv: V_charge={self.cath_V_c} V, "
                          f"V_discharge={self.cath_V_d} V (REGION cathode rates use "

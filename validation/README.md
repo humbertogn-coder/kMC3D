@@ -70,3 +70,5 @@ Change log of validated engine changes:
 * 2026-09-24  stall detection (stall_attempts / stall_reruns /
               stall_p_accept_min) and atomic cycle_stats.csv write: both
               cases byte-identical (the limits are never reached).
+* 2026-09-27  end_half_min_ce (current-efficiency cut-off): both cases
+              byte-identical with the keyword absent.

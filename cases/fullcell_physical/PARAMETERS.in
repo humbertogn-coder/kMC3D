@@ -65,3 +65,10 @@ cathode_V_discharge 1.9
 # of cathode release keep dead charge halves alive for hundreds of events).
 first_half end
 end_half_when_idle 10
+# Current-efficiency cut-off (2026-09-27): the half also ends when the
+# instantaneous CE of the reaction scan, W_transfer/(W_transfer+W_parasitic),
+# drops below 0.9. Run 2 showed the slow last oxidation step (Li2S8 -> S8,
+# E0 2.39 V at V_charge 2.45 V) keeping charge halves alive while the SEI
+# took 15 to 40 % of the events; a real cell stops at its voltage cut-off
+# once the useful current has tapered to the parasitic level.
+end_half_min_ce 0.9

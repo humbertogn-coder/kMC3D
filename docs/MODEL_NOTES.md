@@ -49,6 +49,15 @@ PARAMETERS.in
                      events without Li transfer (zero-current cut-off).
                      fullcell_physical uses 10 (50 in run 1 let a trickle of
                      cathode release keep dead charge halves alive).
+    end_half_min_ce  0 = off. f: the half-cycle ends when the instantaneous
+                     current efficiency of the reaction scan, W_transfer /
+                     (W_transfer + W_parasitic), falls below f (after 10
+                     events). Transfer = plating, stripping, cathode CONSUME_LI
+                     / RELEASE_LI candidates; parasitic = electrolyte
+                     decomposition, shuttle and CEI candidates. A scan with no
+                     Li-transfer candidate counts as CE 0 (the half is over
+                     without burning the retry budget). kMC analogue of the
+                     CC-CV end-of-charge cut-off. fullcell_physical: 0.9.
     stall_attempts   200 (retries with electrolyte refresh when no event can fire)
     stall_reruns     10000 (rejected slow draws, dt > scanInterval/5, per step)
     stall_p_accept_min 1e-4 (a draw is hopeless when 1 - exp(-W scanInterval/5)
