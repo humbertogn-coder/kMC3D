@@ -1,5 +1,9 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-28
+- Run 3 of fullcell_physical analysed (MODEL_NOTES 0005): cut-off works,
+  cell life 3x run 2, same death mechanism. No engine change.
+
 ## 2026-09-27 (engine speed-up, byte-identical)
 - Speed pass, no change of any output: (1) neighbour-class counts updated
   incrementally from the sites whose class changed (exact integer deltas over

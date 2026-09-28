@@ -255,6 +255,34 @@ decomposition).
    ~4 lower). The three fullcell_physical checkpoints can be resumed but the
    cells are dead; a run 3 needs (1) first.
 
+0005. RUN 3 OF fullcell_physical (CE cut-off 0.9, fast engine, 5 seeds,
+   2026-09-28). All 5 seeds finished cleanly: 4 reached the 200 half-cycle
+   limit and 1 the 100000-step limit, in 4.1 to 5.1 h each (run 2: 75 to 89
+   half-cycles in 12 h). Conservation exact. The cut-off ended 111 to 194 of
+   the ~200 halves; the idle counter never fired. Capacity 540 to 600
+   mAh/g_S (35 % utilisation, event-budget limited) held to cycle ~45 with
+   a transient dip to ~400 around cycles 15 to 30 (Li2S8 accumulation while
+   the dissolved fraction settles at 20 to 25 %), then a fade to 50 % of the
+   initial value at cycle 57 (median over seeds; 17 to 60) and ~40 mAh/g by
+   cycle 83. CE_cathode 0.99 to 1.01 throughout; CE_mod 0.95 to 1.00 while
+   active. Sulfur: 70 % on the lattice, 25 % dissolved, 3 % in the CEI at
+   the end. SEI 9.5 sites per cycle (run 2: 50), side events 1.0 to 1.7 %
+   of platings in the active part of the charge (run 2: 2 to 2.5 %, half
+   cell 0.47 %). The death mechanism is the same as in run 2 (Li flagged
+   ionised by SEI fragments; n_Li at the end of the discharge 1533 -> 1944),
+   three times slower. Why the side fraction is still 2 to 3 times the half-
+   cell anchor: at a fixed cathode potential of 2.45 V the upper-plateau
+   oxidations (Li4S8 -> Li2S8, E0 2.24 V: 74 s^-1 per site; Li2S8 -> S8,
+   E0 2.39 V: 8 s^-1 per site) supply Li+ at ~2500 s^-1, far below the
+   anode's plating capability (21000 s^-1), so the pool is empty most of
+   the charge and the side reactions (~100 s^-1) compete with the SUPPLY,
+   not with plating at full speed. A real galvanostatic charge raises the
+   cathode potential to keep the current (2.6 to 2.8 V at the end of
+   charge, which accelerates the last step ~300x). Next engine step: a
+   galvanostatic cathode potential (V_cat chosen each scan so that the
+   cathode transfer rate matches a target current), then the fragment-based
+   anchoring of the side rates (option 2b).
+
 0004. SPEED PROFILE (cloud bench, 2 cores, 6 half-cycles, cProfile).
    anode_physical: 0.41 s per counted step; A100: 0.077 s per step() call
    but ~9 step() calls per counted step (SEI fragment diffusion moves), so
