@@ -335,6 +335,27 @@ class Engine:
         self.eoc2 = (self.src[self.m_oc2].astype(np.int64),
                      self.dst[self.m_oc2].astype(np.int64))
 
+        # PERFORMANCE: CSR view of the combined edge list by src site, so a
+        # scan that only needs the edges of a few sites (Li / SEI sites for
+        # the activation energies, SEI sites for the charge update) gathers
+        # them directly instead of masking the full 1e6-edge arrays. The
+        # stable sort keeps every site's edges in their original order, so
+        # per-site floating-point sums are unchanged (byte-identical output).
+        self._csr_order = np.argsort(self.src, kind="stable")
+        counts = np.bincount(self.src, minlength=self.N)
+        self._csr_indptr = np.concatenate(([0], np.cumsum(counts)))
+        # PERFORMANCE: the neighbour-class counts are updated incrementally
+        # (only the sites whose class changed touch their neighbours' counts),
+        # which needs the edges grouped by DST site for each edge list.
+        self._by_dst = {}
+        for name, (es, ed) in (("g4", self.eg4), ("te", self.ete),
+                               ("ba2", self.eba2), ("oc2", self.eoc2)):
+            order = np.argsort(ed, kind="stable")
+            cnt = np.bincount(ed, minlength=self.N)
+            self._by_dst[name] = (es[order], np.concatenate(([0], np.cumsum(cnt))))
+        self._cls_prev = None
+        self._oc_or_ba = self.lat.is_OCsite() | self.lat.is_BAsite()   # static
+
     def _build_interaction_matrix(self):
         n = len(self.spt.sym2code)
         M = np.zeros((n, n))
@@ -430,30 +451,128 @@ class Engine:
         return np.bincount(key, minlength=self.N * self._NCLS)\
                  .reshape(self.N, self._NCLS)
 
+    # ------------------------------------------------------------ caches
+    # The neighbour counts, the activation energies and the charge flags are
+    # pure functions of (occ, spc) [and chg for the charge update]. They were
+    # recomputed from scratch at every call (20 to 30 calls per kMC step,
+    # 70 % of the wall time, MODEL_NOTES 0004). Each cache keeps an exact
+    # snapshot of its inputs and is reused only while the inputs are
+    # byte-for-byte equal, so the outputs are identical to a recomputation.
+    def _state_unchanged(self, snap):
+        return (snap is not None
+                and np.array_equal(self.occ, snap[0])
+                and np.array_equal(self.spc, snap[1]))
+
+    # incremental update above this many changed sites costs more than a
+    # full recount (26 + 8 edges per changed site vs 1e6 edges in total)
+    _INCR_MAX_CHANGED = 4000
+
+    def _srcs_into(self, name, sites):
+        """src sites of every <name> edge whose dst is in sites, plus the
+        matching dst repeated per edge (for per-site class deltas)."""
+        es, indptr = self._by_dst[name]
+        starts = indptr[sites]
+        lens = indptr[sites + 1] - starts
+        total = int(lens.sum())
+        if total == 0:
+            return np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
+        offs = np.repeat(starts - (np.cumsum(lens) - lens), lens)
+        idx = np.arange(total) + offs
+        return es[idx], np.repeat(np.arange(sites.size), lens)
+
     def _refresh_counts(self):
+        """Neighbour-class counts of every site. The counts are pure integer
+        functions of the per-site class, so after the first full pass they
+        are updated incrementally from the sites whose class changed (exact:
+        integer add / subtract of the same edges a full recount would use).
+        A full recount is done when too many sites changed."""
         cls = self._class_of_sites()
+        prev = self._cls_prev
+        if prev is not None:
+            changed = np.flatnonzero(cls != prev)
+            if changed.size == 0:
+                return
+            if changed.size <= self._INCR_MAX_CHANGED:
+                self._counts_incremental(changed, prev[changed], cls[changed])
+                self._cls_prev = cls
+                self._publish_counts()
+                return
         g4 = self._count_all_classes(self.eg4, cls)
         te = self._count_all_classes(self.ete, cls)
-        self.nLi = g4[:, self._CLS_LI] + te[:, self._CLS_LI]
-        self.nETH = g4[:, self._CLS_ETH]
-        self.nSOL = g4[:, self._CLS_SOL]
-        self.nSALT = g4[:, self._CLS_FSI]
         seiM = cls == self._CLS_SEI
-        self.nBA_SEI = self._count(self.eba2, seiM)
-        self.nOC_SEI = self._count(self.eoc2, seiM)
-        self.seiM = seiM
+        self._g4 = g4
+        self._te = te
+        self._nBA_SEI = self._count(self.eba2, seiM)
+        self._nOC_SEI = self._count(self.eoc2, seiM)
+        self._cls_prev = cls
+        self._publish_counts()
+
+    def _counts_incremental(self, changed, old_cls, new_cls):
+        n7 = self._NCLS
+        for name, tab in (("g4", self._g4), ("te", self._te)):
+            srcs, k = self._srcs_into(name, changed)
+            if srcs.size == 0:
+                continue
+            flat = tab.reshape(-1)
+            flat -= np.bincount(srcs * n7 + old_cls[k], minlength=flat.size)
+            flat += np.bincount(srcs * n7 + new_cls[k], minlength=flat.size)
+        d_sei = (new_cls == self._CLS_SEI).astype(np.int64)             - (old_cls == self._CLS_SEI).astype(np.int64)
+        sel = np.flatnonzero(d_sei)
+        if sel.size:
+            for name, arr in (("ba2", self._nBA_SEI), ("oc2", self._nOC_SEI)):
+                srcs, k = self._srcs_into(name, changed[sel])
+                if srcs.size:
+                    arr += np.bincount(srcs, weights=d_sei[sel][k],
+                                       minlength=self.N).astype(arr.dtype)
+
+    def _publish_counts(self):
+        g4, te = self._g4, self._te
+        self.nLi = g4[:, self._CLS_LI] + te[:, self._CLS_LI]
+        self.nETH = g4[:, self._CLS_ETH].copy()
+        self.nSOL = g4[:, self._CLS_SOL].copy()
+        self.nSALT = g4[:, self._CLS_FSI].copy()
+        self.nBA_SEI = self._nBA_SEI.copy()
+        self.nOC_SEI = self._nOC_SEI.copy()
+        self.seiM = self._cls_prev == self._CLS_SEI
 
     # --------------------------------------------------------- Eact / rates
     def _eact_all(self):
-        """Environment-dependent activation energy for every site (vectorized)."""
+        """Environment-dependent activation energy for every site (vectorized).
+        Cached on (occ, spc); seiM is derived from the same state."""
+        if self._state_unchanged(getattr(self, "_eact_snap", None)):
+            return self._eact_cache
+        self._eact_snap = (self.occ.copy(), self.spc.copy())
+        self._eact_cache = self._eact_all_compute()
+        return self._eact_cache
+
+    def _edges_of_sites(self, sites):
+        """Indices (into src/dst/edist) of every edge whose src is in sites,
+        each site's edges in their original order."""
+        if sites.size == 0:
+            return np.zeros(0, dtype=np.int64)
+        starts = self._csr_indptr[sites]
+        lens = self._csr_indptr[sites + 1] - starts
+        total = int(lens.sum())
+        if total == 0:
+            return np.zeros(0, dtype=np.int64)
+        offs = np.repeat(starts - (np.cumsum(lens) - lens), lens)
+        return self._csr_order[np.arange(total) + offs]
+
+    def _eact_all_compute(self):
+        """Eact is only ever read for Li sites (stripping, surface diffusion)
+        and SEI sites (fragment diffusion); electrolyte and empty sites get 0
+        exactly as before (their edges contributed nothing that is read)."""
         occ1 = self.occ == 1
-        is_li_dst = self.spc[self.dst] == self.cLi
+        s_sites = np.flatnonzero(occ1 & ((self.spc == self.cLi) | self.seiM))
+        e = self._edges_of_sites(s_sites)
+        src = self.src[e]; dst = self.dst[e]
+        is_li_dst = self.spc[dst] == self.cLi
         # SEI sites: restrict to minR; non-SEI: no restriction (minR huge)
         minR = np.where(self.seiM, self.minR_geom, 1000.0)
-        within = np.where(is_li_dst, self.edist <= minR[self.src], True)
-        Iv = self.INT[self.spc[self.src], self.spc[self.dst]]
-        valid = occ1[self.dst] & within & (Iv > 0) & (Iv < 1)
-        return np.bincount(self.src, weights=Iv * valid, minlength=self.N)
+        within = np.where(is_li_dst, self.edist[e] <= minR[src], True)
+        Iv = self.INT[self.spc[src], self.spc[dst]]
+        valid = occ1[dst] & within & (Iv > 0) & (Iv < 1)
+        return np.bincount(src, weights=Iv * valid, minlength=self.N)
 
     def _arr_rate(self, sigma, k0, Ea, alpha, E0, V=None):
         """rate = globalA sigma k0 exp(-(Ea - alpha (V - E0)) / kT). V defaults
@@ -643,17 +762,27 @@ class Engine:
 
     def createEther(self):
         self._refresh_counts()
-        m = (self.occ != 1) & (self.lat.is_OCsite() | self.lat.is_BAsite()) \
-            & (self.nLi <= 2)
+        m = (self.occ != 1) & self._oc_or_ba & (self.nLi <= 2)
         if self.cath_bc_band is not None:
             m &= ~self.cath_bc_band       # cathode BCO sites stay EMPTY
         self.occ[m] = 1; self.spc[m] = self.cETH; self.chg[m] = 0
 
     def updateEther(self):
-        m = (self.occ == 1) & ((self.spc == self.cSOL) | (self.spc == self.cFSI)
-                               | (self.spc == self.cETH))
-        self._empty(m)
-        self.createEther()
+        """Empty the electrolyte and re-create the ether, in one pass. The
+        legacy sequence (empty every SOL/FSI/ETH site, recount, fill every
+        empty OC/BA site with nLi <= 2) is reproduced exactly: nLi does not
+        depend on electrolyte sites, so the fill mask can be evaluated before
+        emptying, and only the sites whose content changes are written (a
+        few hundred instead of ~19000, which keeps the counts incremental)."""
+        self._refresh_counts()
+        occ1 = self.occ == 1
+        elec = occ1 & ((self.spc == self.cSOL) | (self.spc == self.cFSI)
+                       | (self.spc == self.cETH))
+        m = (~occ1 | elec) & self._oc_or_ba & (self.nLi <= 2)
+        if self.cath_bc_band is not None:
+            m &= ~self.cath_bc_band       # cathode BCO sites stay EMPTY
+        self._empty(elec & ~m)
+        self.occ[m] = 1; self.spc[m] = self.cETH; self.chg[m] = 0
 
     def etherVol(self):
         rTE = 1.0
@@ -705,9 +834,12 @@ class Engine:
         creates is drawn from the anode bulk reservoir (and capped by it)."""
         seiM = self._sei_mask()
         lat = self.lat
+        # the mask is invariant during the fill loop: a filled site turns into
+        # Li, which stays in the non-SEI class, so one evaluation is exact
+        nonsei = self._nonsei_mask()
 
         def _fill(idx):
-            f = idx[self._nonsei_mask()[idx]]
+            f = idx[nonsei[idx]]
             new = f[~((self.occ[f] == 1) & (self.spc[f] == self.cLi))]
             k = self._bulk_take(new.size)
             new = new[:k]
@@ -733,16 +865,16 @@ class Engine:
         oc_sei = np.where(seiM & lat.is_OCsite())[0]
         for i in oc_sei:
             ba = lat.nbr_indices[BA][lat.nbr_indptr[BA][i]:lat.nbr_indptr[BA][i + 1]]
-            fill = ba[self._nonsei_mask()[ba]]
+            fill = ba[nonsei[ba]]
             self.occ[fill] = 1; self.spc[fill] = self.cLi
             if fill.size < 6:
                 bcb = lat.nbr_indices[BCB][lat.nbr_indptr[BCB][i]:lat.nbr_indptr[BCB][i + 1]]
-                f2 = bcb[self._nonsei_mask()[bcb]]
+                f2 = bcb[nonsei[bcb]]
                 self.occ[f2] = 1; self.spc[f2] = self.cLi
         ba_sei = np.where(seiM & lat.is_BAsite())[0]
         for i in ba_sei:
             te = lat.nbr_indices[TE][lat.nbr_indptr[TE][i]:lat.nbr_indptr[TE][i + 1]]
-            f = te[self._nonsei_mask()[te]]
+            f = te[nonsei[te]]
             self.occ[f] = 1; self.spc[f] = self.cLi
 
     def updateLiMetal(self):
@@ -786,16 +918,23 @@ class Engine:
         self.LiIonS = int((surf & (self.chg != 0)).sum())
 
     def updateCharges(self):
+        snap = getattr(self, "_chg_snap", None)
+        if (snap is not None and np.array_equal(self.occ, snap[0])
+                and np.array_equal(self.spc, snap[1])
+                and np.array_equal(self.chg, snap[2])):
+            return                        # inputs unchanged since the last call: same result
         liM = (self.occ == 1) & (self.spc == self.cLi)
         self.chg[liM] = 0
         seiM = self._sei_mask()
         # edges SEI(src) -> Li(dst) within minR  => dst charge = 1
-        sei_src = seiM[self.src]
-        li_dst = (self.occ[self.dst] == 1) & (self.spc[self.dst] == self.cLi)
-        minR = np.where(seiM, self.minR_geom, 1000.0)
-        within = self.edist <= minR[self.src]
-        hit_dst = self.dst[sei_src & li_dst & within]
+        # (only the edges leaving SEI sites can hit, so gather just those)
+        e = self._edges_of_sites(np.flatnonzero(seiM))
+        src = self.src[e]; dst = self.dst[e]
+        li_dst = (self.occ[dst] == 1) & (self.spc[dst] == self.cLi)
+        within = self.edist[e] <= self.minR_geom[src]
+        hit_dst = dst[li_dst & within]
         self.chg[np.unique(hit_dst)] = 1
+        self._chg_snap = (self.occ.copy(), self.spc.copy(), self.chg.copy())
 
     def countOandF(self):
         self.nO = int(((self.occ == 1) & (self.spc == self.cO)).sum())

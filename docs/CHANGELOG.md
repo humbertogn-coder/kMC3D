@@ -1,5 +1,20 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-27 (engine speed-up, byte-identical)
+- Speed pass, no change of any output: (1) neighbour-class counts updated
+  incrementally from the sites whose class changed (exact integer deltas over
+  the same edges; full recount above 4000 changed sites); (2) activation
+  energies and the SEI-to-Li charge update gather only the edges of the Li /
+  SEI sites through a CSR view of the edge list (stable order, so per-site
+  floating-point sums are unchanged); (3) updateEther rewritten as one pass
+  that writes only the sites whose content changes (same final state as
+  empty-then-refill); (4) the wrap fill loop evaluates the non-SEI mask once
+  (a filled site stays in the mask); (5) static OC|BA mask cached.
+  Timings (cloud bench): anode_physical 6 half-cycles 143.7 -> 20.1 s (7.1x),
+  A100 239 -> 31.5 s (7.6x), small-box full cell 13 half-cycles 691 -> 104 s
+  (6.7x). Checks: anode_small and fullcell_small byte-identical; Data2Excel,
+  cycle_stats and every xyz frame identical on the three physical test runs.
+
 ## 2026-09-27 (engine)
 - end_half_min_ce f (opt-in): current-efficiency cut-off. The half-cycle ends
   when W_transfer / (W_transfer + W_parasitic) of the reaction scan falls

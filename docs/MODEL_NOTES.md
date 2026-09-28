@@ -267,6 +267,9 @@ decomposition).
    vectorisation pass (incremental neighbour counts, cached masks per step,
    Eact only for candidate sites) should give 3 to 5x with byte-identical
    output, to be validated on validation/ as every engine change.
+   DONE 2026-09-27: 6.7 to 7.6x on the three physical test runs, all outputs
+   identical (CHANGELOG). Remaining cost: the electrolyte refresh after every
+   failed diffusion attempt (legacy NoRxn path, RNG-bound, cannot be skipped).
 
 0002. RUN 1 OF THE PHYSICAL CASES (GRACE, 5 seeds each, 2026-09-23/24).
    anode_physical (half cell, 152 half-cycles): side fraction 4 to 6 x 10^-3

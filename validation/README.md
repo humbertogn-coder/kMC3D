@@ -72,3 +72,7 @@ Change log of validated engine changes:
               cases byte-identical (the limits are never reached).
 * 2026-09-27  end_half_min_ce (current-efficiency cut-off): both cases
               byte-identical with the keyword absent.
+* 2026-09-27  speed pass (incremental counts, edge gathering, one-pass
+              updateEther): both cases byte-identical; three physical test
+              runs (half cell, A100, small-box full cell) identical in
+              Data2Excel.txt, cycle_stats.csv and all xyz frames.
