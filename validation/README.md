@@ -76,3 +76,5 @@ Change log of validated engine changes:
               updateEther): both cases byte-identical; three physical test
               runs (half cell, A100, small-box full cell) identical in
               Data2Excel.txt, cycle_stats.csv and all xyz frames.
+* 2026-09-28  cathode_kinetics galvanostatic: both cases byte-identical with
+              the keyword absent; small-box full cell in bv mode identical.

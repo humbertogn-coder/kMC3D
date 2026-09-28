@@ -1,5 +1,17 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-28 (engine)
+- cathode_kinetics galvanostatic (opt-in): the cathode potential is solved at
+  every reaction scan so that the cathode Li-transfer rate matches the anode
+  BV capability (cathode_current_factor x), inside [cathode_V_min,
+  cathode_V_max]. Constant-current analogue of a CC protocol; cat_V_mean /
+  cat_V_end columns in cycle_stats.csv. Both validation cases and the small-
+  box full cell (bv mode) byte-identical with the keyword absent. Small-box
+  test in galvanostatic mode: charge mean 2.47 V ending at 2.8 V with the
+  cathode fully oxidised (36/36 S8 vs 29/36 at fixed 2.45 V), discharge mean
+  2.12 V ending at 1.7 to 1.9 V, pool populated through the charge (6 to 36
+  Li+ vs 0 to 2), side events unchanged. fullcell_physical switched to it.
+
 ## 2026-09-28
 - Run 3 of fullcell_physical analysed (MODEL_NOTES 0005): cut-off works,
   cell life 3x run 2, same death mechanism. No engine change.

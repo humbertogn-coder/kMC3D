@@ -83,6 +83,13 @@ class CycleLedger:
             row[f"d_{key}"] = cur - self._prev_extra[key]
             self._prev_extra[key] = cur
 
+        # ---- galvanostatic cathode potential (opt-in) ------------------------
+        if getattr(eng, "cath_galv", False):
+            n = int(getattr(eng, "cat_V_n", 0))
+            row["cat_V_mean"] = round(eng.cat_V_sum / n, 4) if n else float("nan")
+            row["cat_V_end"] = round(float(eng._V_cat_now), 4) if eng._V_cat_now is not None else float("nan")
+            eng.cat_V_sum = 0.0
+            eng.cat_V_n = 0
         # ---- shared Li+ pool / well-mixed polysulfide reservoir (opt-in) ----
         # Columns only appear when the feature is active, so legacy CSVs keep
         # exactly their old column set.

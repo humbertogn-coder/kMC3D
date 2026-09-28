@@ -164,9 +164,35 @@ class Parameters:
     #   cathode_V_charge / cathode_V_discharge   V vs Li/Li+, the plateau
     #                     potentials the cell is held at (2.45 / 1.9 V typical
     #                     Li-S charge / discharge cut-off region).
+    #                     galvanostatic -> like bv, but the cathode potential
+    #                     is not fixed: at every reaction scan V_cat is solved
+    #                     (bisection inside [cathode_V_min, cathode_V_max]) so
+    #                     that the cathode's Li-transfer rate, sum over the
+    #                     eligible cathode reactions of N_sites x rate(V) x Li
+    #                     per event, equals cathode_current_factor times the
+    #                     anode's capability (aggregated BV plating rate in a
+    #                     charge, summed BV stripping rate in a discharge).
+    #                     This is constant-current cycling: one current flows
+    #                     through both electrodes and the cathode potential
+    #                     moves to sustain it, rising towards cathode_V_max at
+    #                     the end of charge (slow Li2S8 -> S8 step) and falling
+    #                     towards cathode_V_min at the end of discharge. With
+    #                     bv at a fixed 2.45 V the charge was supply-limited
+    #                     (run 3, MODEL_NOTES 0005). When the cathode cannot
+    #                     carry the current even at the window edge, V_cat is
+    #                     clamped there and the CE cut-off ends the half. The
+    #                     potential reached is reported per half-cycle
+    #                     (cat_V_mean, cat_V_end in cycle_stats.csv).
+    #   cathode_V_min / cathode_V_max   the cycling window, V vs Li/Li+
+    #                     (1.7 to 2.8 V, the usual Li-S cut-offs) [V-assumed]
+    #   cathode_current_factor  target current as a multiple of the anode
+    #                     capability (1.0 = the anode's own BV rate at eta)
     cathode_kinetics: str = "legacy"
     cathode_V_charge: float = 2.45
     cathode_V_discharge: float = 1.9
+    cathode_V_min: float = 1.7
+    cathode_V_max: float = 2.8
+    cathode_current_factor: float = 1.0
     # ---- cycling protocol (opt-in) -----------------------------------------
     #   first_half   begin (legacy: the run starts at BeginV, a charge) |
     #                end (start at EndV, a discharge: a cell assembled in the
@@ -223,6 +249,7 @@ class Parameters:
         "anode_kinetics": str, "bv_k0_site": float, "bv_alpha": float,
         "eta_charge": float, "eta_discharge": float,
         "cathode_kinetics": str, "cathode_V_charge": float, "cathode_V_discharge": float,
+        "cathode_V_min": float, "cathode_V_max": float, "cathode_current_factor": float,
         "first_half": str, "end_half_when_idle": int,
         "stall_attempts": int, "stall_reruns": int, "stall_p_accept_min": float,
         "end_half_min_ce": float,

@@ -58,6 +58,7 @@ Per-site conversion: k0_site = j0 * A_site / e, A_site = 4.0e-16 cm^2.
 
 | Process | Parameter | Value @298 K | Per-site rate | Source (verified) | Tag |
 |---|---|---|---|---|---|
+| Li-S cycling window (cathode_V_min / cathode_V_max, galvanostatic mode) | V | 1.7 to 2.8 V vs Li/Li+ | window edges: the cathode potential is clamped there when it cannot carry the current | standard Li-S cut-offs (Mikhaylik 2004 cycles 1.5 to 3.0 V; Kumaresan 2008 discharge to 1.7 V; most F5DEE Li-S cells 1.7 to 2.8 V) | [V-assumed] |
 | Li plating / stripping, LiFSI in DME (ether, weakly solvating) | j0 | 29.8 +- 0.7 mA cm^-2 | 74 s^-1 | Boyle et al., ACS Energy Lett. 2020, 5, 701, Table 1 (transient CV on ultramicroelectrodes, electron-transfer controlled) | [V] |
 | Li plating / stripping, LiFSI in EC:DEC (carbonate) | j0 | 4.0 +- 1.1 mA cm^-2 | 10 s^-1 | Boyle 2020, Table 1 | [V] |
 | Li plating / stripping in 1.2 M LiFSI / F5DEE | j0 | 30 mA cm^-2 adopted (F5DEE is an ether weaker-solvating than DME; Boyle 2020 attributes larger j0 to weaker Li-solvent binding, p. 706) | 74 s^-1 | interpolation from Boyle 2020; no direct measurement for F5DEE | [P, bounded 10 to 74 s^-1] |

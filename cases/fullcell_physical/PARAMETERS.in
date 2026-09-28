@@ -52,7 +52,17 @@ eta_discharge 0.03
 # charge plateau 2.45 V, discharge cut-off region 1.9 V (vs Li/Li+); typical
 # Li-S plateaus (Kumaresan 2008 Fig. 1; Marinescu 2016 Fig. 2). Tag [P] for
 # the exact values, to be replaced by the cell voltage of the reference data.
-cathode_kinetics bv
+# 2026-09-28: galvanostatic. Run 3 showed that at a fixed 2.45 V the charge is
+# supply-limited (Li2S8 -> S8 at 8 s^-1 per site) and the side reactions take
+# 1 to 1.7 % of the platings (0.47 % in the half cell). Now the cathode
+# potential is solved at every scan inside [1.7, 2.8] V (the usual Li-S window)
+# so that the cathode Li-transfer rate equals the anode's BV capability: one
+# current through both electrodes. cathode_V_charge / discharge are kept for
+# reference only (unused in this mode).
+cathode_kinetics galvanostatic
+cathode_V_min 1.7
+cathode_V_max 2.8
+cathode_current_factor 1.0
 cathode_V_charge 2.45
 cathode_V_discharge 1.9
 # ---- cycling protocol -------------------------------------------------------

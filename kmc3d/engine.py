@@ -199,9 +199,18 @@ class Engine:
         self.eta_c = float(getattr(params, "eta_charge", -0.03))
         self.eta_d = float(getattr(params, "eta_discharge", 0.03))
         self.kT_V = KB_EV * params.temperature      # k_B T / e in volts
-        self.cath_bv = str(getattr(params, "cathode_kinetics", "legacy")).lower() == "bv"
+        _ck = str(getattr(params, "cathode_kinetics", "legacy")).lower()
+        self.cath_galv = _ck == "galvanostatic"
+        self.cath_bv = _ck == "bv" or self.cath_galv
         self.cath_V_c = float(getattr(params, "cathode_V_charge", 2.45))
         self.cath_V_d = float(getattr(params, "cathode_V_discharge", 1.9))
+        self.cath_V_min = float(getattr(params, "cathode_V_min", 1.7))
+        self.cath_V_max = float(getattr(params, "cathode_V_max", 2.8))
+        self.cath_i_factor = float(getattr(params, "cathode_current_factor", 1.0))
+        self._V_cat_now = None        # galvanostatic: potential of the last scan
+        self._w_anode_cap = 0.0       # galvanostatic: anode Li-transfer capability
+        self.cat_V_sum = 0.0          # per-half accumulators for the ledger
+        self.cat_V_n = 0
         self.anode_dead = False
         self.dried_out = False
         self.stalled = False      # set by step() when no event can fire
@@ -593,8 +602,51 @@ class Engine:
         return tot
 
     def _cathode_V(self):
-        """Cathode potential (V vs Li/Li+) of the current half-cycle."""
+        """Cathode potential (V vs Li/Li+) of the current half-cycle. In the
+        galvanostatic mode the value solved by the current scan is used."""
+        if self.cath_galv and self._V_cat_now is not None:
+            return self._V_cat_now
         return self.cath_V_c if self.presentV == self.p.BeginV else self.cath_V_d
+
+    def _solve_cathode_V(self, groups, target):
+        """Galvanostatic cathode potential: find V in [V_min, V_max] such that
+        the cathode Li-transfer rate f(V) = sum_r N_r scale_r sumrate_r(V)
+        n_li_r equals target (Li per second). f is monotonic in V for the
+        reactions of one half-cycle (oxidations rise with V, reductions fall),
+        so a bisection to 0.1 mV is exact enough. Clamped at the window edge
+        when the cathode cannot carry the current."""
+        def f(V):
+            tot = 0.0
+            for (name, n_sites, scale, n_li) in groups:
+                tot += n_sites * scale * self._decomp_sumrate(name, V) * n_li
+            return tot
+        lo, hi = self.cath_V_min, self.cath_V_max
+        f_lo, f_hi = f(lo), f(hi)
+        if f_lo == f_hi:
+            return lo if self.presentV == self.p.EndV else hi
+        rising = f_hi > f_lo
+        if target <= 0:
+            return lo if rising else hi
+        if rising:
+            if f_hi <= target:
+                return hi
+            if f_lo >= target:
+                return lo
+        else:
+            if f_lo <= target:
+                return lo
+            if f_hi >= target:
+                return hi
+        for _ in range(40):
+            mid = 0.5 * (lo + hi)
+            fm = f(mid)
+            if (fm < target) == rising:
+                lo = mid
+            else:
+                hi = mid
+            if hi - lo < 1e-4:
+                break
+        return 0.5 * (lo + hi)
 
     # --------------------------------------------------------- population ops
     def _eligible_BC(self):
@@ -1196,6 +1248,11 @@ class Engine:
                 # channels; DECOMPOSITION.in Plating/PlatingSEI entries ignored
                 k_bv = self.bv_k0 * np.exp(-self.bv_alpha * self.eta_c / self.kT_V)
                 sr_plate = sr_psei = k_bv * self.p.globalA
+                if self.cath_galv:
+                    # anode capability (Li/s) regardless of the pool: the
+                    # current a galvanostatic charge asks the cathode to supply
+                    elig_cap = self._eligible_BC() & (self.nETH > 0) & (self.nLi >= 2) & (self.nLi <= 5)
+                    self._w_anode_cap = float(elig_cap.sum()) * sr_plate
             salt = np.where(occ1 & (self.spc == self.cFSI))[0]
             # shared pool: every Li-placing event needs one Li+ and scales
             # with the remaining fraction of the pool (mean-field depletion)
@@ -1265,10 +1322,19 @@ class Engine:
             surf = self.mob.params.get("LiSurface", {}).get("Li")
             # li_pool_max: a full pool cannot accept more Li+ -> no stripping
             # (surface diffusion is unaffected). Legacy path when cap is off.
+            strip_raw = strip
             if self._pool_full() and strip:
                 strip = None
                 self.pool_full_blocks += 1
             cand_li = np.where(li0 & (self.nLi <= 4) & (self.nETH >= 1))[0]
+            if self.cath_galv:
+                # anode capability (Li/s) regardless of the pool cap: the
+                # current a galvanostatic discharge asks the cathode to draw
+                self._w_anode_cap = 0.0
+                if self.bv and strip_raw and strip_raw["sigma"] != 0 and cand_li.size:
+                    e_min_c = float(eact[cand_li].min())
+                    k_c = self.bv_k0 * self.p.globalA * np.exp(self.bv_alpha * self.eta_d / self.kT_V)
+                    self._w_anode_cap = float((k_c * np.exp(-(eact[cand_li] - e_min_c) / self.kT)).sum())
             if self.bv and strip and cand_li.size:
                 # Butler-Volmer stripping: absolute scale from j0, site
                 # selection from the coordination-dependent Eact (relative)
@@ -1304,6 +1370,11 @@ class Engine:
         # --- cathode / conversion / reservoir reactions (region + voltage) ---
         blockedM = None   # passivation mask, evaluated at most once per step
         n_dep_room = None # eligible deposit sites, evaluated at most once per step
+        galv_groups = []  # galvanostatic: (name, n_sites, scale, n_li, start, end)
+        if self.cath_galv:
+            # rates of REGION cathode Li-transfer reactions are first taken at
+            # a provisional potential and rescaled once V_cat is solved
+            self._V_cat_now = self.cath_V_max if atBegin else self.cath_V_min
         for r in self.conv_rxns:
             if r.voltage == "begin" and not atBegin:
                 continue
@@ -1357,9 +1428,26 @@ class Engine:
                          & lat.is_BC()).sum())
                 sel &= ~blockedM
             sites = np.where(sel)[0]
+            start = len(cand_w)
             for s in sites:
                 cand_types.append(("CONV", r.name)); cand_sites.append(s)
                 cand_w.append(sr); cand_dest.append(-1)
+            if (self.cath_galv and r.region == "cathode" and sites.size
+                    and self._li_transfer.get(r.name, False)):
+                scale = sr / self._decomp_sumrate(r.name, self._V_cat_now)
+                n_li = max(self._li_need.get(r.name, 0), self._li_release.get(r.name, 0))
+                galv_groups.append((r.name, int(sites.size), scale, n_li, start, len(cand_w)))
+
+        if self.cath_galv and galv_groups:
+            target = self.cath_i_factor * self._w_anode_cap
+            V = self._solve_cathode_V([g[:4] for g in galv_groups], target)
+            self._V_cat_now = V
+            for (name, _n, scale, _nli, start, end) in galv_groups:
+                sr_v = scale * self._decomp_sumrate(name, V)
+                for k in range(start, end):
+                    cand_w[k] = sr_v
+            self.cat_V_sum += V
+            self.cat_V_n += 1
 
         if not cand_w:
             self._last_W = 0.0
@@ -1703,7 +1791,11 @@ class Engine:
             self.out.log(f"end_half_min_ce={self.min_ce}: half-cycles end when the instantaneous "
                          f"current efficiency W_transfer/(W_transfer+W_parasitic) of the "
                          f"reaction scan falls below it (after 10 events)")
-        if self.cath_bv:
+        if self.cath_galv:
+            self.out.log(f"cathode_kinetics=galvanostatic: V_cat solved each scan in "
+                         f"[{self.cath_V_min}, {self.cath_V_max}] V so that the cathode "
+                         f"Li-transfer rate = {self.cath_i_factor} x anode capability")
+        elif self.cath_bv:
             self.out.log(f"cathode_kinetics=bv: V_charge={self.cath_V_c} V, "
                          f"V_discharge={self.cath_V_d} V (REGION cathode rates use "
                          f"alpha (V_cat - E0); alpha < 0 reduction, > 0 oxidation)")

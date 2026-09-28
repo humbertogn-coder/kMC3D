@@ -42,8 +42,19 @@ PARAMETERS.in
                      bv_k0_site (74 s^-1), bv_alpha (0.5), eta_charge (-0.03 V),
                      eta_discharge (+0.03 V); one aggregated plating candidate
                      (k x eligible growth sites). docs/ANODE_KINETICS.md.
-    cathode_kinetics legacy | bv. bv: REGION cathode rates evaluated at
-                     cathode_V_charge / cathode_V_discharge with signed alpha.
+    cathode_kinetics legacy | bv | galvanostatic. bv: REGION cathode rates
+                     evaluated at cathode_V_charge / cathode_V_discharge with
+                     signed alpha. galvanostatic: V_cat solved at every scan
+                     (bisection in [cathode_V_min, cathode_V_max]) so that the
+                     cathode Li-transfer rate, sum of N_sites x rate(V) x Li
+                     per event over the eligible cathode reactions, equals
+                     cathode_current_factor x the anode BV capability
+                     (aggregated plating rate in a charge, summed stripping
+                     rate in a discharge): constant-current cycling, the
+                     potential moves to sustain the current and is clamped at
+                     the window edge when the cathode cannot (then the CE
+                     cut-off ends the half). Ledger columns cat_V_mean,
+                     cat_V_end give a quasi voltage profile per half-cycle.
     first_half       begin (legacy, charge first) | end (discharge first)
     end_half_when_idle  0 = off. N: the half-cycle ends after N consecutive
                      events without Li transfer (zero-current cut-off).
