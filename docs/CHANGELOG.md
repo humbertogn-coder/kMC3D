@@ -1,5 +1,10 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-29
+- Run 4 of fullcell_physical analysed (MODEL_NOTES 0006): galvanostatic mode
+  gives a sensible voltage profile, a populated pool and side events 0.9 %
+  of platings. No engine change.
+
 ## 2026-09-28 (engine)
 - cathode_kinetics galvanostatic (opt-in): the cathode potential is solved at
   every reaction scan so that the cathode Li-transfer rate matches the anode

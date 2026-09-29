@@ -266,6 +266,30 @@ decomposition).
    ~4 lower). The three fullcell_physical checkpoints can be resumed but the
    cells are dead; a run 3 needs (1) first.
 
+0006. RUN 4 OF fullcell_physical (galvanostatic cathode, 5 seeds,
+   2026-09-29). All 5 finished cleanly (4 at the 100000-step limit after 128
+   to 168 half-cycles, 1 at 200 half-cycles; 4.6 to 4.9 h each); conservation
+   exact; the cut-off ended 54 to 170 halves, the idle counter none.
+   Voltage profile (new columns cat_V_mean / cat_V_end): charge 2.47 to 2.66 V
+   mean, pinned at 2.8 V at the end; discharge 2.06 to 2.31 V mean, ending at
+   1.9 V early in life and at 2.8 V (target current zero: no stripping
+   candidate left) once the anode is largely ionised. The pool is populated
+   through the charge (run 3: empty). Side events 0.9 % of platings overall
+   (run 3: 1.0 to 1.7 %; half cell 0.47 %): 0.2 to 0.5 % while the anode
+   plates at full capability, rising late in life when the target current
+   falls (fewer eligible growth sites) while the parasitic rate does not,
+   which is also what a real cell does at low current. SEI 7.4 sites per
+   cycle (run 3: 9.5). Capacity 560 to 590 mAh/g_S initially, fading
+   gradually to 340 mAh/g (5-seed mean) at cycle 63 with a large spread: two
+   seeds keep 550 at cycles 64 to 80, three reach 50 % at cycles 16, 39 and
+   54. The cathode is never fully re-oxidised (S8 71 to 81 of 100 after a
+   charge): 20 to 30 sites stay as Li2S8 / Li4S8 behind the passivation
+   mask or as re-precipitated species, a lever for a later study. Remaining
+   life limiter unchanged: Li ionised next to SEI fragments (n_Li at the end
+   of the discharge 1537 -> 1700). Next: anchoring of the side rates by
+   fragments (option 2b) so that the Li deactivated per cycle, not the event
+   count, matches the CE.
+
 0005. RUN 3 OF fullcell_physical (CE cut-off 0.9, fast engine, 5 seeds,
    2026-09-28). All 5 seeds finished cleanly: 4 reached the 200 half-cycle
    limit and 1 the 100000-step limit, in 4.1 to 5.1 h each (run 2: 75 to 89
