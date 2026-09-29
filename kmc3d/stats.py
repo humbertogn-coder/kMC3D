@@ -57,6 +57,9 @@ class CycleLedger:
     # ------------------------------------------------------------ engine API
     def close_half(self, eng) -> None:
         """Record the half-cycle that is ending now (presentV not yet flipped)."""
+        if self._decomp_keys is None:
+            chans = str(getattr(eng.p, "ce_electron_channels", "FSI,SFO,SOL,SOL2,F5D"))
+            self._decomp_keys = tuple("rxn_" + c.strip() for c in chans.split(",") if c.strip())
         R = dict(eng.R)
         if self._prevR is None:
             dR = dict(R)
@@ -320,7 +323,8 @@ class CycleLedger:
 
     # one electron per decomposition event (FSI plates 1 Li into the SEI;
     # SFO/SOL/SOL2/F5D are electrolyte reductions)
-    _DECOMP = ("rxn_FSI", "rxn_SFO", "rxn_SOL", "rxn_SOL2", "rxn_F5D")
+    _DECOMP = ("rxn_FSI", "rxn_SFO", "rxn_SOL", "rxn_SOL2", "rxn_F5D")   # legacy default
+    _decomp_keys = None   # set from PARAMETERS.in ce_electron_channels at the first close
 
     def _ce_mod(self) -> np.ndarray:
         """CE_mod = stripped(discharge) / [plated + decomposition](charge).
@@ -332,7 +336,7 @@ class CycleLedger:
             a, b = self.rows[i - 1], self.rows[i]
             if a.get("phase") == "charge" and b.get("phase") == "discharge":
                 q_ch = (a.get("rxn_Plating", 0) + a.get("rxn_PlatingSEI", 0)
-                        + sum(a.get(k, 0) for k in self._DECOMP))
+                        + sum(a.get(k, 0) for k in (self._decomp_keys or self._DECOMP)))
                 q_dis = b.get("rxn_LiStripping", 0)
                 if q_ch > 0:
                     ce[i] = q_dis / q_ch

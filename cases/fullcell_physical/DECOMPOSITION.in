@@ -18,14 +18,24 @@ Plating 1
 1 1E-4 0.000 0.0 -3.04
 PlatingSEI 1
 1 1E-4 0.000 0.0 -3.04
+# ---- 2026-09-29: re-anchored by Li DEACTIVATED, not by events (option 2b) ----
+# Run 4 of fullcell_physical (5 seeds, 12 to 100 cycles) measured, per plating
+# event: 0.0061 primary reductions (FSI, SOL, SOL2), 2.7 fragment sites per
+# primary event (second steps SFO / F5D included) and 2.1 Li ionised per
+# fragment (chg rule, Li within minR of a fragment): 0.034 Li deactivated per
+# Li plated, a CE of 96.6 %. The CE anchor (Yu 2022, LiFSI/F5DEE, 99.74 to
+# 99.90 %; 0.002 Li lost per Li plated adopted) applies to the Li lost, so the
+# whole electrolyte-reduction family (FSI, SFO, SOL, SOL2) is divided by
+# 0.034 / 0.002 = 17, keeping the ratios between channels. The values below
+# are those of 2026-09-22 / 17. [V-derived, CE-anchored by Li deactivated]
 FSI 1
-1 19 0.000 0.0 -3.04
+1 1.118 0.000 0.0 -3.04
 SFO 1
-1 0.19 0.000 0.0 -3.04
+1 0.01118 0.000 0.0 -3.04
 SOL 1
-1 0.25 0.000 0.0 -3.04
+1 0.01471 0.000 0.0 -3.04
 SOL2 1
-1 0.25 0.364 0.0 -3.04
+1 0.01471 0.364 0.0 -3.04
 # ---- cathode cascade, Butler-Volmer at the cathode potential (cathode_kinetics bv)
 # format: sigma k0 Ea alpha E0. k0 per site from exchange current densities
 # (k0 = i0 A_site / e, A_site 4e-20 m2): high plateau iH,0 = 10 A/m2 -> 2.5 s^-1,

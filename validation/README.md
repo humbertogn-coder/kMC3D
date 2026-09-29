@@ -78,3 +78,5 @@ Change log of validated engine changes:
               Data2Excel.txt, cycle_stats.csv and all xyz frames.
 * 2026-09-28  cathode_kinetics galvanostatic: both cases byte-identical with
               the keyword absent; small-box full cell in bv mode identical.
+* 2026-09-29  ce_electron_channels (CE_mod accounting): both cases
+              byte-identical with the keyword absent.

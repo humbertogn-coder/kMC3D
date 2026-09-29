@@ -1,5 +1,16 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-29 (calibration + CE accounting)
+- ce_electron_channels (PARAMETERS.in, default the legacy five types):
+  which decomposition types count one electron in CE_mod. Physical cases
+  list FSI,SFO,SOL,F5D (SOL2 is chemical). Legacy CSVs unchanged (both
+  validation cases byte-identical). Ledger recovery from a checkpoint uses
+  the legacy default.
+- Option 2b: electrolyte-reduction rates of fullcell_physical, anode_physical
+  and anode_physical_A100 divided by 17 so that the Li deactivated per Li
+  plated (measured in run 4: 0.034) matches the CE anchor (0.002). Tables in
+  KINETICS_TABLE.md section 7b. Run 5 to test.
+
 ## 2026-09-29
 - Run 4 of fullcell_physical analysed (MODEL_NOTES 0006): galvanostatic mode
   gives a sensible voltage profile, a populated pool and side events 0.9 %

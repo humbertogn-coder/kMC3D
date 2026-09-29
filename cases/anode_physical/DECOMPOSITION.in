@@ -30,12 +30,22 @@ PlatingSEI 1
 # a 40 x 40 A patch is a few sites per cycle; morphology studies of the SEI
 # need an explicit, reported acceleration factor on these three k0 (the
 # original engine's 1e-4 : 1e-4 ratio corresponds to an acceleration of ~500).
+# ---- 2026-09-29: re-anchored by Li DEACTIVATED, not by events (option 2b) ----
+# Run 4 of fullcell_physical (5 seeds, 12 to 100 cycles) measured, per plating
+# event: 0.0061 primary reductions (FSI, SOL, SOL2), 2.7 fragment sites per
+# primary event (second steps SFO / F5D included) and 2.1 Li ionised per
+# fragment (chg rule, Li within minR of a fragment): 0.034 Li deactivated per
+# Li plated, a CE of 96.6 %. The CE anchor (Yu 2022, LiFSI/F5DEE, 99.74 to
+# 99.90 %; 0.002 Li lost per Li plated adopted) applies to the Li lost, so the
+# whole electrolyte-reduction family (FSI, SFO, SOL, SOL2) is divided by
+# 0.034 / 0.002 = 17, keeping the ratios between channels. The values below
+# are those of 2026-09-22 / 17. [V-derived, CE-anchored by Li deactivated]
 FSI 1
-1 19 0.000 0.0 -3.04
+1 1.118 0.000 0.0 -3.04
 SFO 1
-1 0.19 0.000 0.0 -3.04
+1 0.01118 0.000 0.0 -3.04
 SOL 1
-1 0.25 0.000 0.0 -3.04
+1 0.01471 0.000 0.0 -3.04
 # F5DEE on Li2O (SOL2): candidates are solvent sites touching an O (Li2O)
 # site. Same CE-anchored prefactor as SOL (0.25 s^-1) with the Tan 2024
 # DFT/NEB barrier 0.364 eV as the relative attenuation of the Li2O route vs
@@ -44,4 +54,4 @@ SOL 1
 # elementary-step rate, not an effective electrode rate: in the full cell it
 # made every O site an inexhaustible F5DEE sink (see docs/CHANGELOG.md).
 SOL2 1
-1 0.25 0.364 0.0 -3.04
+1 0.01471 0.364 0.0 -3.04

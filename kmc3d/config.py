@@ -234,6 +234,13 @@ class Parameters:
     #   half alive while the SEI takes 15 to 40 % of the events
     #   (fullcell_physical run 2, MODEL_NOTES 0003). Suggested 0.9.
     end_half_min_ce: float = 0.0
+    # ---- CE_mod accounting ---------------------------------------------------
+    #   ce_electron_channels  comma-separated decomposition types that consume
+    #   one electron each in CE_mod = stripped / (plated + decompositions).
+    #   Legacy default: all five (FSI, SFO, SOL, SOL2, F5D). SOL2 (F5DEE on
+    #   Li2O, Tan 2024) is a chemical defluorination, not an electrochemical
+    #   reduction, so the physical cases list FSI,SFO,SOL,F5D.
+    ce_electron_channels: str = "FSI,SFO,SOL,SOL2,F5D"
 
     # field name -> caster
     _CAST = {
@@ -252,7 +259,7 @@ class Parameters:
         "cathode_V_min": float, "cathode_V_max": float, "cathode_current_factor": float,
         "first_half": str, "end_half_when_idle": int,
         "stall_attempts": int, "stall_reruns": int, "stall_p_accept_min": float,
-        "end_half_min_ce": float,
+        "end_half_min_ce": float, "ce_electron_channels": str,
     }
 
     @classmethod

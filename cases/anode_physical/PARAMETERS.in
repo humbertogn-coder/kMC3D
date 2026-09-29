@@ -43,3 +43,6 @@ bv_k0_site 74
 bv_alpha 0.5
 eta_charge -0.03
 eta_discharge 0.03
+# CE_mod counts one electron per decomposition of these types; SOL2 (F5DEE on
+# Li2O) is a chemical defluorination and is excluded (2026-09-29).
+ce_electron_channels FSI,SFO,SOL,F5D

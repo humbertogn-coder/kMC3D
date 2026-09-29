@@ -151,6 +151,32 @@ acceleration factor A_SEI (e.g. 100 or 500), reported alongside the results.
 Plating, stripping and the cathode kinetics are never accelerated, so the
 electrode coupling stays physical.
 
+## 7b. Anchoring by Li deactivated, not by events (2026-09-29)
+
+The CE anchor is a statement about Li LOST per Li plated, not about the
+number of reduction events. In the lattice model one primary reduction
+(FSI, SOL or SOL2) leaves several fragment sites (second steps SFO / F5D
+included) and every fragment ionises the Li sites within minR (the legacy
+charge rule: Li bound in LiF, Li2O, ..., no longer strippable). Run 4 of
+fullcell_physical measured, per plating event and over 5 seeds: 0.0061
+primary reductions, 2.7 fragment sites per primary reduction, 2.1 Li
+ionised per fragment, i.e. 0.034 Li deactivated per Li plated (CE 96.6 %)
+although the EVENT fraction (0.6 %) was already close to the anchor. The
+electrolyte-reduction family (FSI, SFO, SOL, SOL2) is therefore divided by
+0.034 / 0.002 = 17, keeping the ratios between channels:
+
+| channel | 2026-09-22 (per event) | 2026-09-29 (per Li lost) | A_SEI = 100 |
+|---|---|---|---|
+| FSI  | 19 s^-1   | 1.118 s^-1   | 111.8 |
+| SFO  | 0.19      | 0.01118      | 1.118 |
+| SOL  | 0.25      | 0.01471      | 1.471 |
+| SOL2 | 0.25 exp(-0.364/kT) | 0.01471 exp(-0.364/kT) | 1.471 exp(-0.364/kT) |
+
+The factor is a property of the lattice representation (fragments per event
+and Li per fragment) and must be re-measured if minR, the fragment
+stoichiometry (MECHANISM.in channels) or the box change. Tag [V-derived,
+CE-anchored by Li deactivated].
+
 ## 8. Salt-site artifact removed in bv mode (2026-09-22)
 
 In the legacy scheme plating is a candidate only where a salt (FSI) site

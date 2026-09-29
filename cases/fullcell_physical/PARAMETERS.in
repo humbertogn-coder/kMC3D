@@ -13,7 +13,7 @@ scanInterval 3600
 maxInterval 800
 BeginV 4.4
 EndV 2.8
-totalSteps 100000
+totalSteps 250000
 maxCycles 200
 printStepFreq 1
 XYZprintFreq 500
@@ -82,3 +82,6 @@ end_half_when_idle 10
 # took 15 to 40 % of the events; a real cell stops at its voltage cut-off
 # once the useful current has tapered to the parasitic level.
 end_half_min_ce 0.9
+# CE_mod counts one electron per decomposition of these types; SOL2 (F5DEE on
+# Li2O) is a chemical defluorination and is excluded (2026-09-29).
+ce_electron_channels FSI,SFO,SOL,F5D

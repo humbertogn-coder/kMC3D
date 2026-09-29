@@ -69,6 +69,9 @@ PARAMETERS.in
                      Li-transfer candidate counts as CE 0 (the half is over
                      without burning the retry budget). kMC analogue of the
                      CC-CV end-of-charge cut-off. fullcell_physical: 0.9.
+    ce_electron_channels  comma-separated decomposition types that count one
+                     electron in CE_mod (default FSI,SFO,SOL,SOL2,F5D = legacy;
+                     physical cases exclude SOL2, a chemical defluorination).
     stall_attempts   200 (retries with electrolyte refresh when no event can fire)
     stall_reruns     10000 (rejected slow draws, dt > scanInterval/5, per step)
     stall_p_accept_min 1e-4 (a draw is hopeless when 1 - exp(-W scanInterval/5)
