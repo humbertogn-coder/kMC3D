@@ -80,3 +80,6 @@ Change log of validated engine changes:
               the keyword absent; small-box full cell in bv mode identical.
 * 2026-09-29  ce_electron_channels (CE_mod accounting): both cases
               byte-identical with the keyword absent.
+* 2026-09-29  xyz_flip_every / xyz_exclude, vectorised lattice cutoff and
+              minR, box-scaled incremental threshold, count views: both
+              cases byte-identical; bench physical runs identical.

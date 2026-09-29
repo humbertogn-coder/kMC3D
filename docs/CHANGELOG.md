@@ -1,5 +1,26 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-29 (tall box)
+- Trajectory control (opt-in): xyz_flip_every N (frame at every N-th
+  half-cycle flip; legacy 1) and xyz_exclude (species left out of xyz
+  frames, e.g. ETH). Both validation cases byte-identical with the keywords
+  absent.
+- Large-box construction: per-pair cutoff lookup table in
+  lattice._build_neighbors and vectorised Engine._build_minR (the per-site
+  loop recomputed the Cartesian array at every call). A 640000-site box now
+  builds in 20 s instead of 12 min; identical neighbour lists and minR.
+- Incremental neighbour counts: the full-recount threshold scales with the
+  box (max(4000, N/12)); count arrays published as views instead of copies.
+  Validation cases and the three bench physical runs byte-identical.
+- New case cases/fullcell_tall: 20 x 20 x 100 cells (8 x 8 x 40 nm), A_SEI 100
+  on the anchored electrolyte-reduction family, finite foil li_bulk_init
+  30000, 1600 events per half, frames every 10 flips without ETH. About 1 s
+  per event: ~1 h per cycle. Run with sbatch --mem=16G --time=7-00:00:00.
+- fullcell_physical: maxCycles 1000 (500 cycles), totalSteps 1000000 for run 6.
+- docs/REPORT.md: technical report at milestone 4 (engine, changes,
+  validation, parameters, results, comparison with the original, limits,
+  applications, roadmap).
+
 ## 2026-09-29 (milestone 4)
 - Run 5 of fullcell_physical: 100 cycles at 550 to 600 mAh/g_S with no fade,
   CE 1.00, Li lost per Li plated 0.0024 (anchor 0.002). MODEL_NOTES 0007.

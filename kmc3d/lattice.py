@@ -123,11 +123,18 @@ def _build_neighbors(frac: np.ndarray, name_code: np.ndarray,
     ci = name_code[pairs[:, 0]]
     cj = name_code[pairs[:, 1]]
 
-    # cutoff per pair (depends on the unordered type pair)
-    cut = np.empty(len(pairs))
-    for p in range(len(pairs)):
-        key = frozenset((int(ci[p]), int(cj[p])))
-        cut[p] = _CUTOFF.get(key, -1.0) * _TOL
+    # cutoff per pair (depends on the unordered type pair): a small lookup
+    # table indexed by the two type codes replaces the per-pair Python loop
+    # (20 M pairs in a 640000-site box took > 10 min; same values, so the
+    # neighbour lists are identical)
+    n_codes = int(max(NAME_CODE.values())) + 1
+    table = np.full((n_codes, n_codes), -1.0)
+    for key, val in _CUTOFF.items():
+        codes = tuple(key)
+        a, b = (codes[0], codes[0]) if len(codes) == 1 else (codes[0], codes[1])
+        table[a, b] = val
+        table[b, a] = val
+    cut = table[ci, cj] * _TOL
     keep = dist <= cut
     pairs = pairs[keep]
     pi, pj = pairs[:, 0], pairs[:, 1]

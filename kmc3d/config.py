@@ -241,6 +241,15 @@ class Parameters:
     #   Li2O, Tan 2024) is a chemical defluorination, not an electrochemical
     #   reduction, so the physical cases list FSI,SFO,SOL,F5D.
     ce_electron_channels: str = "FSI,SFO,SOL,SOL2,F5D"
+    # ---- trajectory output control (opt-in, large boxes) --------------------
+    #   xyz_flip_every  a frame is written at every half-cycle flip (legacy 1);
+    #                   N > 1 writes it at every N-th flip only.
+    #   xyz_exclude     comma-separated species left out of the xyz frames
+    #                   (e.g. ETH: the ether background is ~80 % of the atoms
+    #                   and carries no information). Empty = legacy (all).
+    #                   Frame 0 and the per-step frames obey the same list.
+    xyz_flip_every: int = 1
+    xyz_exclude: str = ""
 
     # field name -> caster
     _CAST = {
@@ -260,6 +269,7 @@ class Parameters:
         "first_half": str, "end_half_when_idle": int,
         "stall_attempts": int, "stall_reruns": int, "stall_p_accept_min": float,
         "end_half_min_ce": float, "ce_electron_channels": str,
+        "xyz_flip_every": int, "xyz_exclude": str,
     }
 
     @classmethod

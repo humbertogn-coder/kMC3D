@@ -44,3 +44,5 @@ the first and last .xyz of each seed for analysis.
 Rates for the cathode cascade, dissolution, precipitation and shuttle are
 literature placeholders and are NOT calibrated yet (docs/MODEL_NOTES.md,
 section 5). The confidential C++ reference engine is not part of this repository.
+
+Technical report at milestone 4: docs/REPORT.md (engine, changes, validation, parameters, results, comparison with the original C++ code, limitations, applications, roadmap).

@@ -41,8 +41,11 @@ class Output:
             self._data.write("# " + " ".join(DATA_COLUMNS) + "\n")
 
     # -- trajectory ---------------------------------------------------------
-    def write_xyz(self, step: int, lat, occ, species_code, charge, code2sym):
+    def write_xyz(self, step: int, lat, occ, species_code, charge, code2sym,
+                  exclude_codes=()):
         busy = np.where(occ == 1)[0]
+        if len(exclude_codes):
+            busy = busy[~np.isin(species_code[busy], np.asarray(exclude_codes))]
         path = os.path.join(self.traj, f"kmc-coords-{step}.xyz")
         b = lat.box
         cart = lat.frac[busy] @ b

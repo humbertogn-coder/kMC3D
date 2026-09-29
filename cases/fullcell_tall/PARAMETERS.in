@@ -10,35 +10,35 @@ solvMolar 6.5
 scanIntervalType time
 potentialType step
 scanInterval 3600
-maxInterval 800
+maxInterval 1600
 BeginV 4.4
 EndV 2.8
-totalSteps 1000000
-maxCycles 1000
+totalSteps 4000000
+maxCycles 200
 printStepFreq 1
-XYZprintFreq 500
-snapshotEveryCycles 20
-checkpointEveryCycles 20
+XYZprintFreq 0
+snapshotEveryCycles 10
+checkpointEveryCycles 10
 globalA 0.5
 numberDecompositionRxns 25
 nMobilityReactions 3
 # ---- Li-S coupling (new) ---------------------------------------------------
 li_pool_mode shared
 li_pool_init -1
-reservoir_sites 2000
+reservoir_sites 26667
 # anode bulk foil: 0 = NO hidden Li reservoir. The anode Li inventory is the
 # lattice slab only (conservative anode: stripping thins it, plating rebuilds
 # it). With -1 (legacy semi-infinite foil) the framework refilled every
 # stripped vacancy and the slab inflated by the plated amount every cycle,
 # drying the electrolyte in ~10 cycles (smoke test 2026-09-23). N/P is set by
 # the slab thickness in GEOMETRY.in.
-li_bulk_init 0
+li_bulk_init 30000
 # ---- structural brakes (2026-09-21) ----------------------------------------
 # li_pool_max: 2 * li_pool0 (74 Li+ in this box) -> mean-field current
 # coupling of the two electrodes (no stripping / cathodic oxidation when the
 # electrolyte cannot take more Li+). stop_electrolyte_fraction: clean stop
 # when ETH+SOL+FSI fall below 5 % of the initial count (cell dried out).
-li_pool_max 148
+li_pool_max 1974
 stop_electrolyte_fraction 0.05
 stop_anode_inactive_halves 6
 # ---- physically based anode kinetics (see cases/anode_physical) -------------
@@ -85,3 +85,15 @@ end_half_min_ce 0.9
 # CE_mod counts one electron per decomposition of these types; SOL2 (F5DEE on
 # Li2O) is a chemical defluorination and is excluded (2026-09-29).
 ce_electron_channels FSI,SFO,SOL,F5D
+# ---- fullcell_tall: trajectory control and scaling (2026-09-29) --------------
+# Frames only every 10th half-cycle flip and without the ETH background (640k
+# sites per frame otherwise: ~16 MB each, 16 GB per seed). Event budget,
+# reservoir normalisation and pool cap scaled with the box volume (x13.3) and
+# area (x4, halved for cost): 800 -> 1600 events per half (2.8 Li layers per
+# half instead of 5.6; ~1 h per cycle at 1 s per step, 100 cycles = 4 days,
+# checkpoint every 10 half-cycles so the array can be resubmitted), 2000 -> 26667 reservoir sites,
+# 148 -> 1974 pool cap. li_bulk_init 30000: a finite foil behind the slab
+# (N/P ~ 6 with the 400-site cathode), so the accelerated SEI (A_SEI 100)
+# consumes foil Li instead of killing the slab within a few cycles [P].
+xyz_flip_every 10
+xyz_exclude ETH

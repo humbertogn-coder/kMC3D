@@ -384,18 +384,23 @@ class Engine:
         Non-SEI sites get a large value (no restriction)."""
         lat = self.lat
         minR = np.full(self.N, 1000.0)
-        # nearest BA neighbour distance per site
+        # distance of the FIRST such neighbour (regular lattice => uniform),
+        # vectorised over the sites: the per-site loop recomputed the whole
+        # Cartesian array at every call (O(N^2): 700 s in a 640000-site box).
+        # OC-type sites (OC, BCO) and BA-type sites (BA, BCB) are disjoint, so
+        # each site is assigned once, exactly as before.
+        cart = lat.frac @ lat.box
+        Lv = np.array([lat.box[0, 0], lat.box[1, 1], lat.box[2, 2]])
         for r, mask_site in ((BA, lat.is_OCsite()), (TE, lat.is_BAsite())):
             ptr, idx = lat.nbr_indptr[r], lat.nbr_indices[r]
-            for i in np.where(mask_site)[0]:
-                a, b = ptr[i], ptr[i + 1]
-                if b > a:
-                    # distance of first such neighbour (regular lattice => uniform)
-                    e0 = self._edge_dist(i, idx[a])
-                    if r == BA:                 # OC-type uses BA distance
-                        minR[i] = min(minR[i], e0) if minR[i] < 1000 else e0
-                    else:                       # BA-type uses TE distance
-                        minR[i] = min(minR[i], e0) if minR[i] < 1000 else e0
+            sites = np.where(mask_site)[0]
+            a = ptr[sites]
+            has = ptr[sites + 1] > a
+            sites = sites[has]
+            j = idx[a[has]]
+            d = cart[sites] - cart[j]
+            d -= Lv * np.round(d / Lv)
+            minR[sites] = np.sqrt((d * d).sum(axis=1))
         self.minR_geom = minR   # geometric; SEI gating applied at use time
 
     def _edge_dist(self, i, j):
@@ -474,7 +479,7 @@ class Engine:
 
     # incremental update above this many changed sites costs more than a
     # full recount (26 + 8 edges per changed site vs 1e6 edges in total)
-    _INCR_MAX_CHANGED = 4000
+    _INCR_MAX_CHANGED = 4000   # floor; scaled with the box in _refresh_counts
 
     def _srcs_into(self, name, sites):
         """src sites of every <name> edge whose dst is in sites, plus the
@@ -501,7 +506,7 @@ class Engine:
             changed = np.flatnonzero(cls != prev)
             if changed.size == 0:
                 return
-            if changed.size <= self._INCR_MAX_CHANGED:
+            if changed.size <= max(self._INCR_MAX_CHANGED, self.N // 12):
                 self._counts_incremental(changed, prev[changed], cls[changed])
                 self._cls_prev = cls
                 self._publish_counts()
@@ -535,13 +540,17 @@ class Engine:
                                        minlength=self.N).astype(arr.dtype)
 
     def _publish_counts(self):
+        # views of the count tables (no copies: 6 x 640000-element copies per
+        # refresh cost more than the incremental update in a large box). The
+        # tables are only modified inside _refresh_counts, and every reader
+        # re-reads the attributes after a refresh, exactly as with fresh arrays.
         g4, te = self._g4, self._te
         self.nLi = g4[:, self._CLS_LI] + te[:, self._CLS_LI]
-        self.nETH = g4[:, self._CLS_ETH].copy()
-        self.nSOL = g4[:, self._CLS_SOL].copy()
-        self.nSALT = g4[:, self._CLS_FSI].copy()
-        self.nBA_SEI = self._nBA_SEI.copy()
-        self.nOC_SEI = self._nOC_SEI.copy()
+        self.nETH = g4[:, self._CLS_ETH]
+        self.nSOL = g4[:, self._CLS_SOL]
+        self.nSALT = g4[:, self._CLS_FSI]
+        self.nBA_SEI = self._nBA_SEI
+        self.nOC_SEI = self._nOC_SEI
         self.seiM = self._cls_prev == self._CLS_SEI
 
     # --------------------------------------------------------- Eact / rates
@@ -1081,7 +1090,9 @@ class Engine:
                 self.idle_events = 0
                 self._ce_inst = 1.0
                 self.countOandF()
-                self._write_xyz()
+                every = int(getattr(self.p, "xyz_flip_every", 1))
+                if every <= 1 or (self.cycleNumber + 1) % every == 0:
+                    self._write_xyz()
                 self.ledger.close_half(self)
                 self.presentV = self.p.EndV if self.presentV == self.p.BeginV else self.p.BeginV
                 self.stepCurrentV = 0
@@ -1655,8 +1666,13 @@ class Engine:
         self.out.write_step(self._row())
 
     def _write_xyz(self):
+        excl = getattr(self, "_xyz_exclude_codes", None)
+        if excl is None:
+            names = [x.strip() for x in str(getattr(self.p, "xyz_exclude", "")).split(",") if x.strip()]
+            excl = self._xyz_exclude_codes = tuple(
+                self.spt.sym2code[n] for n in names if n in self.spt.sym2code)
         self.out.write_xyz(self.currentStep, self.lat, self.occ, self.spc,
-                           self.chg, self.spt.code2sym)
+                           self.chg, self.spt.code2sym, exclude_codes=excl)
 
     def _write_snapshot(self):
         """Dump a POSCAR of the current frozen structure for Zeo++/RASPA.

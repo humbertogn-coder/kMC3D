@@ -72,6 +72,8 @@ PARAMETERS.in
     ce_electron_channels  comma-separated decomposition types that count one
                      electron in CE_mod (default FSI,SFO,SOL,SOL2,F5D = legacy;
                      physical cases exclude SOL2, a chemical defluorination).
+    xyz_flip_every   1 = frame at every half-cycle flip (legacy); N = every N-th
+    xyz_exclude      species left out of the xyz frames (e.g. ETH), empty = all
     stall_attempts   200 (retries with electrolyte refresh when no event can fire)
     stall_reruns     10000 (rejected slow draws, dt > scanInterval/5, per step)
     stall_p_accept_min 1e-4 (a draw is hopeless when 1 - exp(-W scanInterval/5)

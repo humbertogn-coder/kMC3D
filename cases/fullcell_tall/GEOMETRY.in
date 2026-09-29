@@ -1,0 +1,35 @@
+# fullcell_tall (2026-09-29): the SEI-morphology box. 20 x 20 x 100 cells =
+# 8 x 8 x 40 nm, 640000 sites (13x fullcell_physical). Same anode slab
+# (40.4 A) and one BC layer of S8 (400 sites, 6400 Li demand); the anode is
+# backed by a finite foil (li_bulk_init) so that the accelerated SEI does not
+# exhaust the Li inventory. cathode_thickness 0.006 x 400 A = 2.4 A = one BC
+# layer, as 0.02 x 120 A was in the small box.
+# fullcell_physical: anode slab 40.4 A (~2200 Li, the whole Li inventory since
+# li_bulk_init 0) against one BC layer of S8 (100 sites, 1600 Li demand):
+# N/P ~ 1.4. fullcell_cei used 20.2 A / 700 sites (N/P 0.10, semi-infinite foil).
+# cathode_center 0.0 -> the S8 slab wraps both z faces (periodic band)
+latticeConstant 4.0
+nx 20
+ny 20
+nz 100
+anode_center 0.5
+anode_thickness_A 40.4
+anode_thickness_is_fraction false
+anode_species Li
+cathode_enabled true
+cathode_species S8
+cathode_center 0.0
+cathode_thickness 0.006
+cathode_charge 0
+cathode_access_fraction 1.0
+write_poscar false
+# ---- dynamic passivation by the CEI film (milestone 2) ---------------------
+# [SF26]: the sulfite/thiosulfate/LiF film is electronically insulating and
+# passivates the cathode. Film sites occupy the electrolyte (OC/BA) shell of a
+# cathode site, which holds 18 to 22 of its 26 neighbours. nmin 10 = a cathode
+# site is blocked once about half of its electrolyte-facing shell is film
+# (geometric threshold, PLACEHOLDER; no literature value exists for a lattice
+# criterion). Li16S8 (= Li2S, wide-gap insulator) and Li8S8 (= Li2S2) block as in the
+# original point 3; the CEI film species block per [SF26].
+cathode_passivating_species Li16S8,Li8S8,CEI_SOx,CEI_org
+cathode_passivation_nmin 10
