@@ -1,5 +1,10 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-09-29 (milestone 4)
+- Run 5 of fullcell_physical: 100 cycles at 550 to 600 mAh/g_S with no fade,
+  CE 1.00, Li lost per Li plated 0.0024 (anchor 0.002). MODEL_NOTES 0007.
+  No engine change.
+
 ## 2026-09-29 (calibration + CE accounting)
 - ce_electron_channels (PARAMETERS.in, default the legacy five types):
   which decomposition types count one electron in CE_mod. Physical cases

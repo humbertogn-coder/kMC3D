@@ -269,6 +269,30 @@ decomposition).
    ~4 lower). The three fullcell_physical checkpoints can be resumed but the
    cells are dead; a run 3 needs (1) first.
 
+0007. RUN 5 OF fullcell_physical (side rates anchored by Li lost, option
+   2b; galvanostatic cathode; 5 seeds, 2026-09-29). MILESTONE 4: the cell
+   completes the 100 cycles (200 half-cycles, 160700 steps, 5.5 to 5.7 h per
+   seed) with NO capacity fade: 550 to 600 mAh/g_S from cycle 0 to cycle
+   100 (5-seed mean 583 at cycle 0, 572 at cycle 100; per-seed minimum 489
+   to 514), CE_cathode 1.00 and CE_mod 0.99 to 1.01 throughout, n_Li at the
+   end of the discharge constant (1537 -> 1503), pool 22 to 67 Li+.
+   Conservation exact. Bookkeeping per plating: 0.00045 to 0.00051 primary
+   reductions, 70 to 93 SEI sites per seed after 100 cycles, 0.0007 to
+   0.0040 Li ionised per Li plated (mean 0.0024; anchor 0.002, Yu 2022 CE
+   99.74 to 99.90 %). Cathode: 32 Li2S4-type, 33 Li2S2-type and 10 Li2S-type
+   sites at the end of the discharge, S8 0 (the discharge uses the 800-event
+   budget: utilisation 35 %, still the budget, not the chemistry). Sulfur:
+   75 % lattice, 21 % dissolved (stable from cycle 20), 4 % CEI (growing
+   slowly). Charge mean 2.10 to 2.13 V (discharge) and 2.47 V (charge).
+   Interpretation: with the Li lost per cycle at the experimental CE, the
+   ionised-Li rule no longer kills the anode within 100 cycles; the
+   remaining slow processes are the CEI (4 % of S in 100 cycles) and the
+   SEI (0.8 sites per cycle). The two open items are now what limits
+   REALISM rather than survival: (1) the 800-event budget caps the
+   utilisation at 35 %; (2) the cathode never returns fully to S8 (after a
+   charge ~30 sites stay lithiated behind the passivation mask). Both are
+   parameters, not code.
+
 0006. RUN 4 OF fullcell_physical (galvanostatic cathode, 5 seeds,
    2026-09-29). All 5 finished cleanly (4 at the 100000-step limit after 128
    to 168 half-cycles, 1 at 200 half-cycles; 4.6 to 4.9 h each); conservation
