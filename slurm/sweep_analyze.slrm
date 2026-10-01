@@ -1,0 +1,32 @@
+#!/bin/bash
+#SBATCH --job-name=sw_analyze
+#SBATCH --time=02:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8G
+#SBATCH --output=slurm_logs/sw_analyze.%j.out
+#SBATCH --error=slurm_logs/sw_analyze.%j.err
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=humbertogn@tamu.edu
+# ---------------------------------------------------------------------------
+# Post-processing of a parameter sweep built by postprocess/sweep_make.py.
+# Queued by <sweep>/launch.sh with --dependency=afterany:<all member arrays>,
+# so it runs once every seed of every member has finished (or died). It
+# writes <sweep>/analysis/ (tables, curves, figures, README.md) and packs a
+# light sample of the whole sweep (<sweep name>_sample.tar.gz) for download.
+# Manual use:
+#     sbatch --export=ALL,SWEEP=cases/sweep_plating_j0 slurm/sweep_analyze.slrm
+# Figures need matplotlib in the environment; without it the tables are
+# still written and the figures are made locally after the download.
+# ---------------------------------------------------------------------------
+module purge
+module load GCCcore/13.2.0
+module load Python/3.11.5
+source /scratch/user/humbertogn/ase_env/bin/activate
+export OMP_NUM_THREADS=1
+cd "$SLURM_SUBMIT_DIR"
+SWEEP="${SWEEP:?set SWEEP=cases/<sweep dir>}"
+echo "sweep=$SWEEP  $(date)"
+python postprocess/sweep_analyze.py "$SWEEP"
+bash slurm/pack_sweep.sh "$SWEEP"
+echo "done $(date)"

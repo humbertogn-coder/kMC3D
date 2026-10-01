@@ -1,0 +1,127 @@
+{
+  "base": "cases/anode_physical",
+  "param": "bv_k0_site",
+  "reference_value": 74.0,
+  "reference_physical": {
+    "k0_site_per_s": 74.0,
+    "j0_mA_cm2": 29.640267728999998,
+    "k_plate_per_site_per_s": 132.7124998075216,
+    "k_strip_per_site_per_s": 132.7124998075216,
+    "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+  },
+  "overrides": [
+    "maxCycles=280"
+  ],
+  "seeds": 10,
+  "base_seed": 8597,
+  "members": [
+    {
+      "name": "f_0.500",
+      "factor": 0.5,
+      "value": 37.0,
+      "physical": {
+        "k0_site_per_s": 37.0,
+        "j0_mA_cm2": 14.820133864499999,
+        "k_plate_per_site_per_s": 66.3562499037608,
+        "k_strip_per_site_per_s": 66.3562499037608,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    },
+    {
+      "name": "f_0.625",
+      "factor": 0.625,
+      "value": 46.25,
+      "physical": {
+        "k0_site_per_s": 46.25,
+        "j0_mA_cm2": 18.525167330625,
+        "k_plate_per_site_per_s": 82.945312379701,
+        "k_strip_per_site_per_s": 82.945312379701,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    },
+    {
+      "name": "f_0.750",
+      "factor": 0.75,
+      "value": 55.5,
+      "physical": {
+        "k0_site_per_s": 55.5,
+        "j0_mA_cm2": 22.230200796749997,
+        "k_plate_per_site_per_s": 99.53437485564119,
+        "k_strip_per_site_per_s": 99.53437485564119,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    },
+    {
+      "name": "f_0.875",
+      "factor": 0.875,
+      "value": 64.75,
+      "physical": {
+        "k0_site_per_s": 64.75,
+        "j0_mA_cm2": 25.935234262874996,
+        "k_plate_per_site_per_s": 116.12343733158139,
+        "k_strip_per_site_per_s": 116.12343733158139,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    },
+    {
+      "name": "f_1.000",
+      "factor": 1.0,
+      "value": 74.0,
+      "physical": {
+        "k0_site_per_s": 74.0,
+        "j0_mA_cm2": 29.640267728999998,
+        "k_plate_per_site_per_s": 132.7124998075216,
+        "k_strip_per_site_per_s": 132.7124998075216,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    },
+    {
+      "name": "f_1.125",
+      "factor": 1.125,
+      "value": 83.25,
+      "physical": {
+        "k0_site_per_s": 83.25,
+        "j0_mA_cm2": 33.345301195125,
+        "k_plate_per_site_per_s": 149.30156228346178,
+        "k_strip_per_site_per_s": 149.30156228346178,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    },
+    {
+      "name": "f_1.250",
+      "factor": 1.25,
+      "value": 92.5,
+      "physical": {
+        "k0_site_per_s": 92.5,
+        "j0_mA_cm2": 37.05033466125,
+        "k_plate_per_site_per_s": 165.890624759402,
+        "k_strip_per_site_per_s": 165.890624759402,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    },
+    {
+      "name": "f_1.375",
+      "factor": 1.375,
+      "value": 101.75,
+      "physical": {
+        "k0_site_per_s": 101.75,
+        "j0_mA_cm2": 40.755368127375,
+        "k_plate_per_site_per_s": 182.4796872353422,
+        "k_strip_per_site_per_s": 182.4796872353422,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    },
+    {
+      "name": "f_1.500",
+      "factor": 1.5,
+      "value": 111.0,
+      "physical": {
+        "k0_site_per_s": 111.0,
+        "j0_mA_cm2": 44.460401593499995,
+        "k_plate_per_site_per_s": 199.06874971128238,
+        "k_strip_per_site_per_s": 199.06874971128238,
+        "note": "j0 = k0_site e / A_site with A_site = (2.0 A)^2; plating rate per growth site at eta_charge, stripping at eta_discharge"
+      }
+    }
+  ]
+}

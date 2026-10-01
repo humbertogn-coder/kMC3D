@@ -1,5 +1,28 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-10-01 (parameter sweeps, post-processing only)
+- postprocess/sweep_make.py: builds a one-parameter sweep (a family of case
+  directories) from a base case, scaling either a PARAMETERS.in keyword
+  (e.g. bv_k0_site) or the k0 of one DECOMPOSITION.in reaction
+  (decomp:<NAME>); writes sweep.json with the physical units of the swept
+  value (bv_k0_site -> j0 in mA/cm2, rate per growth site at eta) and
+  launch.sh (one SLURM array per member, analysis job queued after all).
+- postprocess/sweep_analyze.py: per-run metrics from the ledger (current
+  density of the box in mA/cm2 from the kMC clock, side events per 1000
+  plating events by channel, SEI growth rate, z extent and composition, Li
+  bound to SEI per 1000 plated, roughness, CE implied by the electron
+  budget) and from the last xyz frame (buried Li, film extent, porosity
+  profile rescaled to dense Li), mean and sd over seeds, sensitivity table
+  (linear slope, % change per +50 %, p-values, effect-to-noise), per-cycle
+  curves and 11 slide-ready figures. slurm/sweep_analyze.slrm and
+  slurm/pack_sweep.sh run and pack it on GRACE.
+- cases/sweep_plating_j0: +-50 % sweep of the plating exchange rate around
+  the physical reference (74 s^-1 per site, j0 29.6 mA/cm2), nine values,
+  140 cycles, 10 seeds. Note: with half-cycles closed by an event budget,
+  CE_cycle and CE_mod are fixed by the budget; the sweep reports
+  CE = plating / (plating + side events) instead.
+- No engine change (validation untouched).
+
 ## 2026-09-29 (tall box)
 - Trajectory control (opt-in): xyz_flip_every N (frame at every N-th
   half-cycle flip; legacy 1) and xyz_exclude (species left out of xyz

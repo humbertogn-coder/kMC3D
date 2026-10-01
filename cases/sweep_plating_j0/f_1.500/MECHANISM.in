@@ -1,0 +1,58 @@
+# ============================================================================
+# MECHANISM.in  -  Li-S full cell (base scaffold; correct rates with AIMD)
+# ============================================================================
+# ANODE side: SEI formation (same as the Li-metal base case)
+# ----------------------------------------------------------------------------
+REACTION FSI
+  SELECT SINGLE
+  CHANNEL 0
+    PLATE_LI
+    PACK_OC F   -1 1
+    PACK_OC SFO -1 1
+END
+REACTION SFO
+  SELECT RANDINT_INCLUSIVE 7
+  CHANNEL 1
+    PACK_OC SFO -1 2
+  CHANNEL 2
+    PACK_OC SFO -1 1
+    PACK_OC F   -1 1
+  CHANNEL 3
+    PACK_OC SFO -1 1
+    PACK_BA O   -2 1
+  CHANNEL 4
+    PACK_OC SFO -1 1
+    PACK_BA O   -2 1
+  CHANNEL 5
+    PACK_BA S   -2 1
+    PACK_BA N   -2 1
+  CHANNEL 6
+    PACK_OC SFO -1 1
+    PACK_BA O   -2 1
+  CHANNEL 7
+    PACK_BA S   -2 1
+    PACK_BA O   -2 1
+END
+REACTION SOL
+  SELECT SINGLE
+  CHANNEL 0
+    PACK_OC F5D -1 2
+    PACK_OC F   -1 1
+END
+REACTION SOL2
+  SELECT SINGLE
+  CHANNEL 0
+    PACK_OC F5D -1 1
+    PACK_OC F   -1 1
+END
+REACTION Plating
+  SELECT SINGLE
+  CHANNEL 0
+    PLATE_LI
+END
+REACTION PlatingSEI
+  SELECT SINGLE
+  CHANNEL 0
+    PLATE_LI
+END
+
