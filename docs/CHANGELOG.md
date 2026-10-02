@@ -21,6 +21,13 @@
   140 cycles, 10 seeds. Note: with half-cycles closed by an event budget,
   CE_cycle and CE_mod are fixed by the budget; the sweep reports
   CE = plating / (plating + side events) instead.
+- 2026-10-02 addendum: sweep_analyze.py gains ageing metrics (CE per cycle
+  from stripped / plated, stripping retention, cycle of failure = sustained
+  CE < 0.5 or stall, fraction of anode Li bound to SEI; figure F12) and a
+  power-law exponent per metric. New case cases/anode_physical_A10 (A_SEI =
+  10 = A100 / 10) and two ageing sweeps: cases/sweep_plating_j0_A100 (k0 x
+  0.5 .. 1.5, 500 cycles, 5 seeds, end_half_when_idle 10) and
+  cases/sweep_plating_j0_A10 (k0 x 0.5, 1, 1.5, 3000 cycles, 5 seeds).
 - No engine change (validation untouched).
 
 ## 2026-09-29 (tall box)

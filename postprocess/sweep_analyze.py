@@ -68,7 +68,10 @@ LABELS = {"j_plate_mA_cm2": "plating current density", "j_strip_mA_cm2": "stripp
           "surface_diff_per_cycle": "Li surface diffusion / cycle", "ce_event": "CE (electron budget)",
           "loss_event_permille": "charge lost (permille)", "solvent_consumed": "solvent consumed",
           "salt_consumed": "salt consumed", "xyz_li_buried": "buried Li (islands)", "xyz_islands": "Li islands",
-          "xyz_film_extent_A": "film extent", "xyz_film_porosity_rel": "film porosity"}
+          "xyz_film_extent_A": "film extent", "xyz_film_porosity_rel": "film porosity",
+          "cycle_ce_below_0.9": "cycle where CE_cycle < 0.9", "cycle_failure": "cycle of anode failure",
+          "stripped_last10_over_first10": "stripping retention (last/first 10)",
+          "li_ion_fraction_final": "fraction of anode Li bound to SEI"}
 
 # figure conventions (same system as kmc3d.figures)
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
@@ -205,6 +208,18 @@ def run_metrics(run_dir: str, area_cm2: float, skip: int, max_cycle: Optional[in
     out["loss_event_permille"] = float(1e3 * tot_side / (plated_w + tot_side)) if (plated_w + tot_side) else np.nan
     out["solvent_consumed"] = float(_col(t, "n_SOL", n)[0] - m["n_SOL"][nc - 1]) if "n_SOL" in t else np.nan
     out["salt_consumed"] = float(_col(t, "n_FSI", n)[0] - m["n_FSI"][nc - 1]) if "n_FSI" in t else np.nan
+    # aging: the discharge half strips less than the charge half plated once the
+    # strippable Li runs short (end_half_when_idle closes the half early)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ce_c = np.where(m["plated"] > 0, m["stripped"] / m["plated"], np.nan)
+    m["CE_cycle_calc"] = ce_c
+    out["ce_cycle_calc_mean"] = float(np.nanmean(ce_c[w]))
+    out["stripped_last10_over_first10"] = float(m["stripped"][max(nc - 10, 0):nc].mean()
+                                                / max(m["stripped"][:min(10, nc)].mean(), 1e-9))
+    for thr in (0.9, 0.5):
+        below = np.where(np.convolve((ce_c < thr).astype(float), np.ones(3), "valid") >= 3)[0]
+        out[f"cycle_ce_below_{thr}"] = float(m["cycle"][below[0]]) if below.size else np.nan
+    out["li_ion_fraction_final"] = float(m["n_Li_ion"][nc - 1] / max(m["n_Li"][nc - 1], 1))
     lt = t.get("li_total")
     out["li_conserved"] = float(np.nanmax(lt) == np.nanmin(lt)) if lt is not None and np.isfinite(lt).any() else np.nan
     log = os.path.join(run_dir, "kmc_info_log.txt")
@@ -212,6 +227,12 @@ def run_metrics(run_dir: str, area_cm2: float, skip: int, max_cycle: Optional[in
     if os.path.exists(log):
         with open(log, errors="replace") as fh:
             out["stalled"] = float("stalled" in fh.read())
+    # failure cycle: sustained CE_cycle < 0.5, or the run stalling (no strippable
+    # Li left, the anode surface fully bound to SEI) at its last cycle
+    fc = out["cycle_ce_below_0.5"]
+    if not np.isfinite(fc) and out["stalled"] == 1.0:
+        fc = float(nc)
+    out["cycle_failure"] = fc
     return {"scalars": out, "curves": {k: v[:nc] for k, v in m.items()}}
 
 
@@ -270,10 +291,20 @@ def sensitivity(per_run: List[Dict[str, float]], metrics: List[str], ref_factor:
         # pooled within-member noise, to compare with the effect size
         groups = [y[np.isclose(x, f)] for f in np.unique(x)]
         noise = float(np.sqrt(np.mean([g.var(ddof=1) for g in groups if g.size > 1]))) if any(g.size > 1 for g in groups) else np.nan
+        # power-law exponent on the member means (side/plating is expected ~ factor^-1)
+        fs = np.unique(x)
+        means = np.array([y[np.isclose(x, f)].mean() for f in fs])
+        okp = means > 0
+        if okp.sum() >= 3:
+            pl = stats.linregress(np.log(fs[okp]), np.log(means[okp]))
+            exponent, exp_err = float(pl.slope), float(pl.stderr)
+        else:
+            exponent, exp_err = np.nan, np.nan
         pct50 = 100.0 * lr.slope * 0.5 / ref_mean if ref_mean else np.nan
         span = 100.0 * lr.slope * (fmax - fmin) / ref_mean if ref_mean else np.nan
         rows.append({"metric": mname, "ref_mean": ref_mean, "slope_per_unit_factor": float(lr.slope),
                      "pct_change_per_plus50": pct50, "pct_change_over_sweep": span,
+                     "power_exponent": exponent, "power_exponent_se": exp_err,
                      "r": float(lr.rvalue), "p_linear": float(lr.pvalue), "spearman_rho": float(sp.correlation),
                      "p_spearman": float(sp.pvalue), "p_welch_low_vs_high": p_t,
                      "seed_noise_sd": noise, "effect_to_noise": (abs(lr.slope) * (fmax - fmin) / noise) if noise else np.nan,
@@ -512,6 +543,28 @@ def make_figures(out_dir, manifest, summ, per_run, curves, sens, profiles):
         _style(ax, "Sensitivity: % change per +50 % in the parameter (blue = p < 0.05)", "", "% change per +50 %")
         ax.grid(True, axis="x", color=GRID); ax.grid(False, axis="y")
         save(fig, "F11_sensitivity.png")
+    # F12 aging: CE per cycle (stripped / plated) and cycles to failure
+    any_fail = any(np.isfinite(r.get("cycle_failure", np.nan)) or np.isfinite(r.get("cycle_ce_below_0.9", np.nan))
+                   for r in per_run)
+    if any(("CE_cycle_calc" in curves.get(m, {})) for m in members):
+        fig, (a1, a2) = plt.subplots(1, 2, figsize=(11, 5.0), gridspec_kw={"width_ratios": [1.5, 1]})
+        for m, f, c in zip(members, factors, cols):
+            cv = curves.get(m, {}).get("CE_cycle_calc")
+            if cv is None:
+                continue
+            a1.plot(cv["cycle"], cv["mean"], color=(INK if np.isclose(f, 1.0) else c),
+                    linewidth=(2.6 if np.isclose(f, 1.0) else 1.8), label=f"{f:g}")
+        _style(a1, "CE per cycle = stripped / plated (mean over seeds)", "CE_cycle", "cycle")
+        a1.legend(frameon=False, title="factor", ncol=3, fontsize=9)
+        if any_fail:
+            _errorbar(a2, summ, "cycle_ce_below_0.9", SERIES[0], "CE_cycle < 0.9")
+            _errorbar(a2, summ, "cycle_failure", SERIES[1], "failure (CE < 0.5 or stall)")
+            _style(a2, "Cycles to failure (failed runs only)", "cycle", xl.split(" (")[0]); _phys_axis(a2, manifest)
+            a2.legend(frameon=False)
+        else:
+            _errorbar(a2, summ, "li_ion_fraction_final", SERIES[0])
+            _style(a2, "Anode Li bound to SEI at the end", "fraction of n_Li", xl.split(" (")[0]); _phys_axis(a2, manifest)
+        save(fig, "F12_aging.png")
     return made
 
 
@@ -534,7 +587,8 @@ def main(argv=None):
     per_run: List[Dict[str, float]] = []
     curves: Dict[str, Dict[str, Dict[str, np.ndarray]]] = {}
     profiles: Dict[str, tuple] = {}
-    curve_keys = ("n_SEI", "n_Li_ion", "n_Li_dead", "sei_thickness", "surface_roughness", "CE_mod", "cum_side", "j_plate")
+    curve_keys = ("n_SEI", "n_Li_ion", "n_Li_dead", "sei_thickness", "surface_roughness", "CE_mod", "cum_side", "j_plate",
+                  "CE_cycle_calc", "stripped")
     for m in members:
         mdir = os.path.join(a.sweep, m["name"])
         geo = read_geometry(os.path.join(mdir, "GEOMETRY.in"))
@@ -617,6 +671,7 @@ def main(argv=None):
                "sei_rate", "sei_final", "sei_thickness_mean_A", "sei_inorganic_fraction",
                "li_lost_per_1000_plated", "li_ion_final", "li_dead_final", "roughness_mean_A",
                "surface_diff_per_cycle", "ce_event", "loss_event_permille",
+               "cycle_ce_below_0.9", "cycle_failure", "stripped_last10_over_first10", "li_ion_fraction_final",
                "xyz_li_buried", "xyz_islands", "xyz_film_extent_A", "xyz_film_porosity_rel"]
     metrics = [k for k in metrics if k in num_keys]
     sens = sensitivity(per_run, metrics)
@@ -666,9 +721,12 @@ def main(argv=None):
                 return f"{s.get(k + '_mean', np.nan):.{d}f} +- {s.get(k + '_std', np.nan):.{d}f}"
             fh.write(f"| {s['factor']:g} | {s['value']:.4g} | {s['n_seeds']} | {c('j_plate_mA_cm2')} | {c('side_per_1000_plated')} | "
                      f"{c('sei_rate', 3)} | {c('sei_thickness_mean_A', 1)} | {c('li_lost_per_1000_plated')} | {c('roughness_mean_A')} | {c('loss_event_permille')} |\n")
-        fh.write("\n## Sensitivity (linear fit over all runs; % change per +50 % of the parameter)\n\n| metric | reference | % per +50 % | p (linear) | p (Welch low vs high) | effect / seed noise |\n|---|---|---|---|---|---|\n")
+        fh.write("\n## Sensitivity (linear fit over all runs; % change per +50 % of the parameter; "
+                 "power-law exponent from the member means, metric ~ factor^n)\n\n"
+                 "| metric | reference | % per +50 % | exponent n | p (linear) | p (Welch low vs high) | effect / seed noise |\n|---|---|---|---|---|---|---|\n")
         for r in sens:
-            fh.write(f"| {r['metric']} | {r['ref_mean']:.4g} | {r['pct_change_per_plus50']:+.1f} | {r['p_linear']:.3g} | "
+            fh.write(f"| {r['metric']} | {r['ref_mean']:.4g} | {r['pct_change_per_plus50']:+.1f} | "
+                     f"{r['power_exponent']:+.2f} +- {r['power_exponent_se']:.2f} | {r['p_linear']:.3g} | "
                      f"{r['p_welch_low_vs_high']:.3g} | {r['effect_to_noise']:.2f} |\n")
         fh.write("\n## Figures\n\n" + "\n".join(f"- figures/{m}" for m in made) + "\n")
         bad = [r for r in per_run if r.get("li_conserved") == 0.0 or r.get("stalled") == 1.0]

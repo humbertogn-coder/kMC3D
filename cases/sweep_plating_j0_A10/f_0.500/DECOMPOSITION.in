@@ -1,0 +1,61 @@
+# DECOMPOSITION.in - anode_physical_A10: anode_physical with the SEI
+# ACCELERATION FACTOR A_SEI = 10 applied to the four electrolyte-reduction
+# channels (FSI, SFO, SOL, SOL2) = anode_physical_A100 divided by 10. Plating
+# and stripping (BV block) are NOT accelerated. Purpose: slow-ageing regime
+# (thousands of cycles) to test that A_SEI only rescales the cycle axis
+# format: <NAME> <nChannels> then per channel: sigma k0 Ea alpha E0
+# Plating / PlatingSEI: IGNORED in anode_kinetics bv (Butler-Volmer block in
+# PARAMETERS.in supplies both). Kept for the parser.
+Plating 1
+1 1E-4 0.000 0.0 -3.04
+PlatingSEI 1
+1 1E-4 0.000 0.0 -3.04
+# ---- electrolyte reduction at the Li surface -------------------------------
+# LiFSI (FSI) and F5DEE (SOL) reduction on Li are barrierless (LICET, Tan et
+# al. JACS 2024, p. 11714), so their rate is electron-transfer limited and,
+# without an explicit tunnelling attenuation through the SEI [P], cannot be
+# taken as the bare j0 (it would consume the electrolyte at once; Boyle 2020
+# shows the SEI-limited effective j0 is ~100x below the kinetic one).
+# CE-ANCHORED CHOICE: side-reaction events per plating event = (1 - CE)/CE
+# with CE = 0.998 (Yu 2022, LiFSI/F5DEE Li||Cu, 99.74 to 99.90 %) -> 2.0e-3.
+# The side-reaction k0 are set so that the OBSERVED event ratio (side events /
+# plating events) equals 2.0e-3, keeping the original network's internal
+# ratios SFO = 0.01 FSI, SOL = 0.02 FSI (Perez-Beltran 2024, relative).
+# Anchoring accounts for candidate multiplicity: the BV plating weight is
+# k_bv x N_growth (161 growth sites in the 10x10x30 box at half-cycle 45)
+# while FSI / SOL decomposition weigh k x (salt or solvent sites touching Li0:
+# 2 and 16 to 20). Solving side/plating = 2e-3 with the original SOL:FSI event
+# ratio 0.13 gives k_FSI = 19, k_SOL = 0.25, k_SFO = 0.19 s^-1 per adjacent
+# site. Note k_FSI is of the order of k_bv itself: FSI reduction at the
+# interface is fast per molecule (barrierless, Tan 2024) and the high CE comes
+# from the scarcity of salt at the interface. Values are geometry-dependent
+# (through N_growth / N_adjacent) and are re-derived per box size.
+# Tag [V-derived, CE-anchored]. NOTE: at this physical ratio the SEI formed in
+# a 40 x 40 A patch is a few sites per cycle; morphology studies of the SEI
+# need an explicit, reported acceleration factor on these three k0 (the
+# original engine's 1e-4 : 1e-4 ratio corresponds to an acceleration of ~500).
+# ---- 2026-09-29: re-anchored by Li DEACTIVATED, not by events (option 2b) ----
+# Run 4 of fullcell_physical (5 seeds, 12 to 100 cycles) measured, per plating
+# event: 0.0061 primary reductions (FSI, SOL, SOL2), 2.7 fragment sites per
+# primary event (second steps SFO / F5D included) and 2.1 Li ionised per
+# fragment (chg rule, Li within minR of a fragment): 0.034 Li deactivated per
+# Li plated, a CE of 96.6 %. The CE anchor (Yu 2022, LiFSI/F5DEE, 99.74 to
+# 99.90 %; 0.002 Li lost per Li plated adopted) applies to the Li lost, so the
+# whole electrolyte-reduction family (FSI, SFO, SOL, SOL2) is divided by
+# 0.034 / 0.002 = 17, keeping the ratios between channels. The values below
+# are those of 2026-09-22 / 17. [V-derived, CE-anchored by Li deactivated]
+FSI 1
+1 11.18 0.000 0.0 -3.04
+SFO 1
+1 0.1118 0.000 0.0 -3.04
+SOL 1
+1 0.1471 0.000 0.0 -3.04
+# F5DEE on Li2O (SOL2): candidates are solvent sites touching an O (Li2O)
+# site. Same CE-anchored prefactor as SOL x A_SEI (25 s^-1) with the Tan 2024
+# DFT/NEB barrier 0.364 eV as the relative attenuation of the Li2O route vs
+# the barrierless Li route: k = 0.25 exp(-0.364/kT) = 1.8e-7 s^-1 [V-derived].
+# The kT/h prefactor used before (6.2e12 -> 4.5e6 s^-1 per site) is an
+# elementary-step rate, not an effective electrode rate: in the full cell it
+# made every O site an inexhaustible F5DEE sink (see docs/CHANGELOG.md).
+SOL2 1
+1 0.1471 0.364 0.0 -3.04
