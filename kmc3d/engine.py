@@ -1851,6 +1851,7 @@ class Engine:
         meta["ledger_rows"] = self.ledger.rows
         meta["ledger_prevR"] = self.ledger._prevR
         meta["ledger_half_index"] = self.ledger._half_index
+        meta["ledger_prev_extra"] = self.ledger._prev_extra
         with open(path + ".json", "w") as fh:
             json.dump(meta, fh)
         self.out.log(f"checkpoint -> {path}")
@@ -1879,3 +1880,4 @@ class Engine:
         self.ledger.rows = meta.get("ledger_rows", [])
         self.ledger._prevR = meta.get("ledger_prevR")
         self.ledger._half_index = meta.get("ledger_half_index", 0)
+        self.ledger.restore_prev_extra(meta)

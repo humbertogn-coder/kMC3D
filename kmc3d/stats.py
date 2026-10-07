@@ -310,6 +310,26 @@ class CycleLedger:
         os.replace(tmp, path)
         return path
 
+    def restore_prev_extra(self, meta: dict) -> None:
+        """Restore the cumulative baselines of the d_* columns on restart.
+        Checkpoints written since 2026-10-07 store them (ledger_prev_extra).
+        Older checkpoints did not, so the first half after a resume reported
+        the cumulative counter instead of the per-half delta (one bad row per
+        resume in d_li_consumed, d_li_released, d_li_plated_pool ...). For
+        those, the baseline is rebuilt exactly from the closed rows: the
+        deltas telescope from zero, so baseline = sum of the d_* column."""
+        saved = meta.get("ledger_prev_extra")
+        if saved is not None:
+            self._prev_extra.update(saved)
+            return
+        for key in self._prev_extra:
+            if key == "n_Li":
+                vals = [r.get("n_Li") for r in self.rows if r.get("n_Li") is not None]
+                self._prev_extra["n_Li"] = vals[-1] if vals else None
+                continue
+            col = f"d_{key}"
+            self._prev_extra[key] = int(sum(r.get(col, 0) or 0 for r in self.rows))
+
     @classmethod
     def from_checkpoint_meta(cls, meta: dict) -> "CycleLedger":
         """Rebuild a ledger from the JSON side file of a checkpoint
@@ -319,6 +339,7 @@ class CycleLedger:
         led.rows = list(meta.get("ledger_rows", []))
         led._prevR = meta.get("ledger_prevR")
         led._half_index = meta.get("ledger_half_index", len(led.rows))
+        led.restore_prev_extra(meta)
         return led
 
     # one electron per decomposition event (FSI plates 1 Li into the SEI;

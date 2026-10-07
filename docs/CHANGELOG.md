@@ -1,5 +1,32 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-10-07 (ledger fix on resume)
+- Bug: the ledger saved its reaction baselines (ledger_prevR) in the
+  checkpoint but not the baselines of the cumulative-counter columns
+  (_prev_extra: li_consumed, li_released, li_plated_pool, li_bulk_drawn,
+  li_bulk_returned, li_shuttled, li_deposit, n_Li). After a resume the first
+  half-cycle reported the running total instead of the per-half delta (one
+  bad row per resume; run 6 of fullcell_physical showed it as a capacity
+  spike of ~50000 mAh/g at the resume cycle). Reaction counts (rxn_*) and
+  every state column were never affected; the sweep analyses use rxn_* and
+  are unaffected.
+- Fix: save_checkpoint writes ledger_prev_extra; load_checkpoint and
+  CycleLedger.from_checkpoint_meta restore it (CycleLedger.restore_prev_extra).
+  Checkpoints written before the fix are handled exactly: the baselines are
+  rebuilt as the sum of each d_* column over the closed rows (deltas
+  telescope from zero), so resuming the A100 / A10 sweeps from their existing
+  checkpoints gives clean ledgers.
+- Post-processing: cycles.load_cycle_stats repairs ledgers written by the old
+  code (cycles.repair_resume_rows): a resume row is the one where every live
+  cumulative column is >= the sum of its previous rows; the true delta is the
+  value minus that sum, d_li_framework is recomputed. Repairs exactly the 5
+  resume rows of run 6 and nothing in any other ledger on the bench.
+- Validation: anode_small and fullcell_small byte-identical (12/12 files
+  each). Restart test on fullcell_small (checkpoint every 2 halves): straight
+  run, resume with the new field, and resume from a checkpoint without the
+  field give the same cycle_stats.csv (= the reference md5); the old code
+  gives a corrupted row 4, which repair_resume_rows restores exactly.
+
 ## 2026-10-01 (parameter sweeps, post-processing only)
 - postprocess/sweep_make.py: builds a one-parameter sweep (a family of case
   directories) from a base case, scaling either a PARAMETERS.in keyword

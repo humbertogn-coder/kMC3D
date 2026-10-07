@@ -83,3 +83,6 @@ Change log of validated engine changes:
 * 2026-09-29  xyz_flip_every / xyz_exclude, vectorised lattice cutoff and
               minR, box-scaled incremental threshold, count views: both
               cases byte-identical; bench physical runs identical.
+
+## 2026-10-07 ledger baselines on resume
+anode_small and fullcell_small byte-identical (12/12 files each). Restart-equivalence test on fullcell_small (checkpointEveryCycles 2, maxCycles 6 straight vs maxCycles 3 + --restart): cycle_stats.csv identical to the straight run and to the reference md5 (f7d6c677), with and without ledger_prev_extra in the checkpoint. engine.py 3e6544db, stats.py 52eb3845, cycles.py da4d7bf0.

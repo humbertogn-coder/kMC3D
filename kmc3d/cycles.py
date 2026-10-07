@@ -39,8 +39,47 @@ THEORETICAL_MAH_G = 1672.0     # S -> Li2S, 16 e- per S8
 E_PER_S8 = 16
 
 
+# per-half deltas computed from cumulative engine counters; before the
+# 2026-10-07 fix a resume from checkpoint reset their baseline to zero, so the
+# first half after each resume holds the cumulative value instead of the delta
+_CUMULATIVE_DELTAS = ("d_li_consumed", "d_li_released", "d_li_plated_pool",
+                      "d_li_bulk_drawn", "d_li_bulk_returned", "d_li_shuttled",
+                      "d_li_deposit")
+
+
+def repair_resume_rows(t: Dict[str, np.ndarray]) -> int:
+    """Fix the d_* row written right after a resume by ledgers older than
+    2026-10-07. In that row EVERY cumulative-based column holds the running
+    total up to that row (sum of all previous deltas plus the true delta), so
+    each one is >= the sum of its previous rows at the same time, which
+    ordinary per-half deltas never do once a few halves have passed. The true
+    delta is the value minus that sum. d_li_framework (drawn - returned) is
+    recomputed. Returns the number of repaired rows (0 for clean ledgers)."""
+    cols = [c for c in _CUMULATIVE_DELTAS if c in t and t[c].size >= 3]
+    if not cols:
+        return 0
+    x = {c: np.nan_to_num(t[c].astype(float)) for c in cols}
+    n = x[cols[0]].size
+    fixed = 0
+    for i in range(2, n):
+        live = [c for c in cols if x[c][:i].sum() > 0]
+        if len(live) < 2:
+            continue
+        if all(x[c][i] >= x[c][:i].sum() for c in live):
+            for c in live:
+                x[c][i] -= x[c][:i].sum()
+            fixed += 1
+    if fixed:
+        for c in cols:
+            t[c] = np.where(np.isnan(t[c]), np.nan, x[c])
+        if "d_li_framework" in t and "d_li_bulk_drawn" in t and "d_li_bulk_returned" in t:
+            t["d_li_framework"] = t["d_li_bulk_drawn"] - t["d_li_bulk_returned"]
+    return fixed
+
+
 def load_cycle_stats(path: str) -> Dict[str, np.ndarray]:
-    """cycle_stats.csv -> {column: float array}; 'phase' kept as strings."""
+    """cycle_stats.csv -> {column: float array}; 'phase' kept as strings.
+    Rows corrupted by an old-ledger resume are repaired (repair_resume_rows)."""
     with open(path) as fh:
         rows = list(csv.DictReader(fh))
     if not rows:
@@ -58,6 +97,7 @@ def load_cycle_stats(path: str) -> Dict[str, np.ndarray]:
             except ValueError:
                 vals.append(np.nan)
         out[k] = np.array(vals)
+    repair_resume_rows(out)
     return out
 
 
