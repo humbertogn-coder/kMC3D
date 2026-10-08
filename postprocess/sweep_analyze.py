@@ -42,6 +42,7 @@ import csv
 import glob
 import json
 import os
+import re
 import sys
 import warnings
 from typing import Dict, List, Optional
@@ -69,7 +70,7 @@ LABELS = {"j_plate_mA_cm2": "plating current density", "j_strip_mA_cm2": "stripp
           "loss_event_permille": "charge lost (permille)", "solvent_consumed": "solvent consumed",
           "salt_consumed": "salt consumed", "xyz_li_buried": "buried Li (islands)", "xyz_islands": "Li islands",
           "xyz_film_extent_A": "film extent", "xyz_film_porosity_rel": "film porosity",
-          "cycle_ce_below_0.9": "cycle where CE_cycle < 0.9", "cycle_failure": "cycle of anode failure",
+          "cycle_ce_below_0.9": "cycle where CE_cycle < 0.9", "cycle_failure": "cycle of anode failure", "cycle_first_blocked": "first cycle with a blocked discharge", "n_blocked_halves": "half-cycles ended blocked",
           "stripped_last10_over_first10": "stripping retention (last/first 10)",
           "li_ion_fraction_final": "fraction of anode Li bound to SEI"}
 
@@ -224,13 +225,33 @@ def run_metrics(run_dir: str, area_cm2: float, skip: int, max_cycle: Optional[in
     out["li_conserved"] = float(np.nanmax(lt) == np.nanmin(lt)) if lt is not None and np.isfinite(lt).any() else np.nan
     log = os.path.join(run_dir, "kmc_info_log.txt")
     out["stalled"] = 0.0
+    out["n_blocked_halves"] = 0.0
+    out["cycle_first_blocked"] = np.nan
+    out["stopped_blocked"] = 0.0
     if os.path.exists(log):
         with open(log, errors="replace") as fh:
-            out["stalled"] = float("stalled" in fh.read())
-    # failure cycle: sustained CE_cycle < 0.5, or the run stalling (no strippable
-    # Li left, the anode surface fully bound to SEI) at its last cycle
+            txt = fh.read()
+        out["stalled"] = float("stalled" in txt)
+        # end_half_when_blocked: a half that ends because no step reaction is
+        # possible (no strippable Li in discharge) is logged with its index
+        blk = [int(k) for k in re.findall(r"half-cycle (\d+) ended blocked", txt)]
+        out["n_blocked_halves"] = float(len(blk))
+        if blk:
+            # full cycle (charge + discharge pair, as m["cycle"]) holding the
+            # first blocked half
+            hi = np.asarray(t["half_index"])
+            pos = np.where(hi == min(blk))[0]
+            if pos.size:
+                k = int(pos[0])
+                sel = np.where((idx_d == k) | (idx_c == k))[0]
+                if sel.size:
+                    out["cycle_first_blocked"] = float(m["cycle"][sel[0]])
+        out["stopped_blocked"] = float("ended blocked (no reaction possible)" in txt
+                                       or "consecutive half-cycles of the same type ended blocked" in txt)
+    # failure cycle: sustained CE_cycle < 0.5, or the run stalling or stopping on
+    # blocked halves (no strippable Li left, the anode surface bound to SEI)
     fc = out["cycle_ce_below_0.5"]
-    if not np.isfinite(fc) and out["stalled"] == 1.0:
+    if not np.isfinite(fc) and (out["stalled"] == 1.0 or out["stopped_blocked"] == 1.0):
         fc = float(nc)
     out["cycle_failure"] = fc
     return {"scalars": out, "curves": {k: v[:nc] for k, v in m.items()}}
@@ -671,7 +692,7 @@ def main(argv=None):
                "sei_rate", "sei_final", "sei_thickness_mean_A", "sei_inorganic_fraction",
                "li_lost_per_1000_plated", "li_ion_final", "li_dead_final", "roughness_mean_A",
                "surface_diff_per_cycle", "ce_event", "loss_event_permille",
-               "cycle_ce_below_0.9", "cycle_failure", "stripped_last10_over_first10", "li_ion_fraction_final",
+               "cycle_ce_below_0.9", "cycle_failure", "cycle_first_blocked", "n_blocked_halves", "stripped_last10_over_first10", "li_ion_fraction_final",
                "xyz_li_buried", "xyz_islands", "xyz_film_extent_A", "xyz_film_porosity_rel"]
     metrics = [k for k in metrics if k in num_keys]
     sens = sensitivity(per_run, metrics)

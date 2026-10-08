@@ -1,5 +1,37 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-10-07 (speed pass 2 and blocked half-cycles)
+- Speed (no change in results): incremental neighbour counts use
+  np.add.at / np.subtract.at; _refresh_counts returns early when occupancy
+  and species did not change since the last refresh; the Li surface
+  diffusion candidates are built with vectorized CSR gathers
+  (_count_dest) and the destination pool is rebuilt only for the chosen
+  site (_diffusion_pool, same order as before, so the same random draws);
+  _wrap_accounted returns as soon as a finite foil is empty. Identical
+  ledgers and Data2Excel on validation/, anode_physical, anode_physical_A100,
+  an A100 case with a 300-site finite foil and fp_2b; 20 to 30 % faster on
+  the anode cases (178 -> 138 s, 175 -> 131 s, 120 -> 84 s).
+- Root cause of the stalled A100 / A10 sweep runs: once the anode has no
+  strippable Li, a discharge half has total step rate W = 0. Li surface
+  diffusion events are not steps, so the half-cycle never reached its event
+  budget and the run spun on diffusion until the wall-time limit.
+- New opt-in keywords (PARAMETERS.in, default 0 = old behaviour):
+  end_half_when_blocked N ends the half-cycle after N consecutive scans in
+  which no step reaction is possible (logged as "half-cycle k ended blocked
+  after X events"); stop_blocked_halves M stops the run after M consecutive
+  blocked half-cycles of the same type (charge or discharge counted
+  separately, because blocked discharges alternate with normal charges).
+  The counters are saved in the checkpoint (blocked_tries,
+  blocked_halves_begin, blocked_halves_end, idle_events).
+- Test: resuming the stalled chk_A100_slow checkpoint (f_0.500 seed 8597,
+  stuck at half 97) with end_half_when_blocked 200: discharges now end
+  blocked after 23 to 43 of 50 events, so CE_cycle drops gradually; this is
+  the anode failure signal the ageing sweeps need.
+- Validation: anode_small and fullcell_small byte-identical (12/12 files
+  each); restart-equivalence test on fullcell_small passes (cycle_stats.csv
+  = f7d6c677, post-resume Data2Excel lines identical).
+  engine.py 4f448b4e, config.py 4913fd0c.
+
 ## 2026-10-07 (ledger fix on resume)
 - Bug: the ledger saved its reaction baselines (ledger_prevR) in the
   checkpoint but not the baselines of the cumulative-counter columns

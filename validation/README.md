@@ -86,3 +86,6 @@ Change log of validated engine changes:
 
 ## 2026-10-07 ledger baselines on resume
 anode_small and fullcell_small byte-identical (12/12 files each). Restart-equivalence test on fullcell_small (checkpointEveryCycles 2, maxCycles 6 straight vs maxCycles 3 + --restart): cycle_stats.csv identical to the straight run and to the reference md5 (f7d6c677), with and without ledger_prev_extra in the checkpoint. engine.py 3e6544db, stats.py 52eb3845, cycles.py da4d7bf0.
+
+## 2026-10-07 speed pass 2 and end_half_when_blocked
+anode_small and fullcell_small byte-identical (12/12 files each) with the vectorized diffusion candidates, incremental counts and the new opt-in keywords end_half_when_blocked / stop_blocked_halves absent. Restart-equivalence test on fullcell_small passes (cycle_stats.csv f7d6c677). engine.py 4f448b4e, config.py 4913fd0c.

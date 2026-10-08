@@ -202,8 +202,21 @@ class Parameters:
     #                stripping, no cathode conversion): the kMC analogue of a
     #                zero-current cut-off. Without it the fixed event budget is
     #                spent on side reactions once the electrochemistry is done.
+    #   end_half_when_blocked  0 = off (legacy). N > 0: the half-cycle ends
+    #                after N consecutive reaction scans in which NO reaction can
+    #                fire (zero total rate), counted across steps. Without it a
+    #                half in which the anode has no strippable Li left (all
+    #                surface Li bound to SEI) never ends: SEI fragments keep
+    #                diffusing, a diffusion event is not a step, and the run
+    #                spins until the wall-time limit. With it that half ends and
+    #                the ledger records the shortfall: the anode-failure event.
+    #   stop_blocked_halves  0 = off. M > 0: the run stops cleanly after M
+    #                consecutive half-cycles of the same type (charge or discharge) ended by
+    #                end_half_when_blocked.
     first_half: str = "begin"
     end_half_when_idle: int = 0
+    end_half_when_blocked: int = 0
+    stop_blocked_halves: int = 0
     # ---- stall detection ----------------------------------------------------
     #   A kMC step retries when no event can fire: the electrolyte is refreshed
     #   and the reaction scan repeated (stall_attempts), and a selected slow
@@ -267,6 +280,7 @@ class Parameters:
         "cathode_kinetics": str, "cathode_V_charge": float, "cathode_V_discharge": float,
         "cathode_V_min": float, "cathode_V_max": float, "cathode_current_factor": float,
         "first_half": str, "end_half_when_idle": int,
+        "end_half_when_blocked": int, "stop_blocked_halves": int,
         "stall_attempts": int, "stall_reruns": int, "stall_p_accept_min": float,
         "end_half_min_ce": float, "ce_electron_channels": str,
         "xyz_flip_every": int, "xyz_exclude": str,

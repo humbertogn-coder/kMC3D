@@ -127,6 +127,16 @@ class Engine:
         self._W_tr = 0.0
         self._W_par = 0.0
         self.idle_events = 0                     # consecutive non-Li-transfer events
+        # end_half_when_blocked: consecutive reaction scans with zero total rate
+        self.block_limit = int(getattr(params, "end_half_when_blocked", 0))
+        self.stop_blocked = int(getattr(params, "stop_blocked_halves", 0))
+        self.blocked_tries = 0
+        # consecutive blocked halves, counted per half type (charge / discharge
+        # alternate, so a blocked discharge followed by a normal charge must
+        # not reset the discharge count)
+        self.blocked_halves_begin = 0
+        self.blocked_halves_end = 0
+        self.anode_blocked = False
         self.cycleNumber = 0
         self.currentStep = 0
         self.currentTime = 0.0
@@ -500,6 +510,11 @@ class Engine:
         are updated incrementally from the sites whose class changed (exact:
         integer add / subtract of the same edges a full recount would use).
         A full recount is done when too many sites changed."""
+        # the classes (hence every count) depend on occ and spc only: when both
+        # are unchanged since the last refresh the tables are already current
+        if self._cls_prev is not None and self._state_unchanged(getattr(self, "_cnt_snap", None)):
+            return
+        self._cnt_snap = (self.occ.copy(), self.spc.copy())
         cls = self._class_of_sites()
         prev = self._cls_prev
         if prev is not None:
@@ -528,16 +543,17 @@ class Engine:
             if srcs.size == 0:
                 continue
             flat = tab.reshape(-1)
-            flat -= np.bincount(srcs * n7 + old_cls[k], minlength=flat.size)
-            flat += np.bincount(srcs * n7 + new_cls[k], minlength=flat.size)
+            # scatter-add on the touched cells only (same integers as the
+            # former full-length bincount difference, without two N*7 arrays)
+            np.subtract.at(flat, srcs * n7 + old_cls[k], 1)
+            np.add.at(flat, srcs * n7 + new_cls[k], 1)
         d_sei = (new_cls == self._CLS_SEI).astype(np.int64)             - (old_cls == self._CLS_SEI).astype(np.int64)
         sel = np.flatnonzero(d_sei)
         if sel.size:
             for name, arr in (("ba2", self._nBA_SEI), ("oc2", self._nOC_SEI)):
                 srcs, k = self._srcs_into(name, changed[sel])
                 if srcs.size:
-                    arr += np.bincount(srcs, weights=d_sei[sel][k],
-                                       minlength=self.N).astype(arr.dtype)
+                    np.add.at(arr, srcs, d_sei[sel][k].astype(arr.dtype))
 
     def _publish_counts(self):
         # views of the count tables (no copies: 6 x 640000-element copies per
@@ -907,16 +923,26 @@ class Engine:
             self.occ[new] = 1; self.spc[new] = self.cLi
             return f.size
 
+        # finite foil (li_bulk_init >= 0) that is empty: every _bulk_take
+        # returns 0 and li_bulk cannot grow inside wrap, so the remaining fills
+        # change nothing (no site, no counter); stop as soon as that happens
+        finite = self.li_bulk_init >= 0
+        if finite and self.li_bulk <= 0:
+            return
         oc_sei = np.where(seiM & lat.is_OCsite())[0]
         for i in oc_sei:
             ba = lat.nbr_indices[BA][lat.nbr_indptr[BA][i]:lat.nbr_indptr[BA][i + 1]]
             if _fill(ba) < 6:
                 bcb = lat.nbr_indices[BCB][lat.nbr_indptr[BCB][i]:lat.nbr_indptr[BCB][i + 1]]
                 _fill(bcb)
+            if finite and self.li_bulk <= 0:
+                return
         ba_sei = np.where(seiM & lat.is_BAsite())[0]
         for i in ba_sei:
             te = lat.nbr_indices[TE][lat.nbr_indptr[TE][i]:lat.nbr_indptr[TE][i + 1]]
             _fill(te)
+            if finite and self.li_bulk <= 0:
+                return
 
     def _wrap_legacy(self):
         seiM = self._sei_mask()
@@ -1073,10 +1099,20 @@ class Engine:
         if self.p.potentialType == "step" and self.p.scanIntervalType == "time":
             ce_cut = (self.min_ce > 0 and self.stepCurrentV >= 10
                       and self._ce_inst < self.min_ce)
+            blocked = self.block_limit > 0 and self.blocked_tries >= self.block_limit
             if (self.timeCurrentV >= self.p.scanInterval
                     or self.stepCurrentV >= self.p.maxInterval
                     or (self.idle_limit > 0 and self.idle_events >= self.idle_limit)
-                    or ce_cut):
+                    or ce_cut or blocked):
+                if self.block_limit > 0:
+                    key = "blocked_halves_begin" if self.presentV == self.p.BeginV else "blocked_halves_end"
+                    setattr(self, key, getattr(self, key) + 1 if blocked else 0)
+                if blocked:
+                    self.out.log(f"half-cycle {self.cycleNumber} ended blocked after "
+                                 f"{self.stepCurrentV} events: no reaction possible in "
+                                 f"{self.blocked_tries} consecutive scans "
+                                 f"(step {self.currentStep})")
+                self.blocked_tries = 0
                 if self.idle_limit > 0 and self.idle_events >= self.idle_limit:
                     self.out.log(f"half-cycle {self.cycleNumber} ended idle after "
                                  f"{self.idle_events} events without Li transfer "
@@ -1109,7 +1145,13 @@ class Engine:
         return -np.log(max(u, 1e-300)) / W
 
     def _diffusion_candidates(self):
-        """Return (sites, rate_per_site, dest_pools) for SEI diffusion."""
+        """Return (sites, weights, kinds, eact, rate) for SEI diffusion.
+
+        Vectorised over sites (CSR gather of the neighbour lists); the result
+        is identical to the former per-site loop: same site order (OC sites
+        then BA sites, ascending index), same weights rate[i] * n_dest. The
+        destination pool of a site is rebuilt only for the drawn site
+        (_diffusion_pool), in the same order as before."""
         self._refresh_counts()
         seiM = self.seiM
         lat = self.lat
@@ -1125,23 +1167,51 @@ class Engine:
                 alpha[sel] = pr["alpha"]; E0[sel] = pr["E0"]
         rate, _ = self._arr_rate(sigma, k0, eact, alpha, E0)
 
-        sites, weights, pools = [], [], []
+        empty = self.occ != 1
         # OC-type SEI diffuse into empty {BCO,OC} neighbours with nBA_SEI==0 & nLi>=2
+        ok_oc = empty & (self.nBA_SEI == 0) & (self.nLi >= 2)
+        ok_ba = empty & (self.nOC_SEI == 0) & (self.nLi >= 2)
         oc_sites = np.where(seiM & lat.is_OCsite() & (sigma > 0))[0]
-        for i in oc_sites:
-            dest = self._empty_neighbours(i, (BCO, OC),
+        ba_sites = np.where(seiM & lat.is_BAsite() & (sigma > 0))[0]
+        n_oc = self._count_dest(oc_sites, (BCO, OC), ok_oc)
+        n_ba = self._count_dest(ba_sites, (BCB, BA), ok_ba)
+        keep_oc = (n_oc > 0) & (rate[oc_sites] > 0)
+        keep_ba = (n_ba > 0) & (rate[ba_sites] > 0)
+        sites = np.concatenate([oc_sites[keep_oc], ba_sites[keep_ba]])
+        weights = np.concatenate([rate[oc_sites[keep_oc]] * n_oc[keep_oc],
+                                  rate[ba_sites[keep_ba]] * n_ba[keep_ba]])
+        kinds = np.concatenate([np.zeros(int(keep_oc.sum()), dtype=np.int8),
+                                np.ones(int(keep_ba.sum()), dtype=np.int8)])
+        return sites, weights, kinds, eact, rate
+
+    def _count_dest(self, sites, rels, ok):
+        """Number of neighbours k of each site (over the relations rels) with
+        ok[k] True: the size of the destination pool, vectorised."""
+        n = np.zeros(sites.size, dtype=np.int64)
+        if not sites.size:
+            return n
+        lat = self.lat
+        for r in rels:
+            indptr = lat.nbr_indptr[r]; idx = lat.nbr_indices[r]
+            starts = indptr[sites]; lens = indptr[sites + 1] - starts
+            total = int(lens.sum())
+            if total == 0:
+                continue
+            owner = np.repeat(np.arange(sites.size), lens)
+            offs = np.repeat(starts - (np.cumsum(lens) - lens), lens)
+            nb = idx[np.arange(total) + offs]
+            n += np.bincount(owner[ok[nb]], minlength=sites.size)
+        return n
+
+    def _diffusion_pool(self, i, kind):
+        """Destination pool of SEI site i, in the order of the original loop."""
+        if kind == 0:
+            return self._empty_neighbours(i, (BCO, OC),
                                           cond=lambda k: (self.nBA_SEI[k] == 0)
                                           & (self.nLi[k] >= 2))
-            if dest.size and rate[i] > 0:
-                sites.append(i); weights.append(rate[i] * dest.size); pools.append(dest)
-        ba_sites = np.where(seiM & lat.is_BAsite() & (sigma > 0))[0]
-        for i in ba_sites:
-            dest = self._empty_neighbours(i, (BCB, BA),
-                                          cond=lambda k: (self.nOC_SEI[k] == 0)
-                                          & (self.nLi[k] >= 2))
-            if dest.size and rate[i] > 0:
-                sites.append(i); weights.append(rate[i] * dest.size); pools.append(dest)
-        return sites, np.array(weights), pools, eact, rate
+        return self._empty_neighbours(i, (BCB, BA),
+                                      cond=lambda k: (self.nOC_SEI[k] == 0)
+                                      & (self.nLi[k] >= 2))
 
     def _empty_neighbours(self, i, rels, cond):
         lat = self.lat
@@ -1155,14 +1225,15 @@ class Engine:
         return np.concatenate(out) if out else np.array([], dtype=int)
 
     def diffusion_step(self):
-        sites, weights, pools, eact, rate = self._diffusion_candidates()
-        if not sites or weights.sum() <= 0:
+        sites, weights, kinds, eact, rate = self._diffusion_candidates()
+        if not sites.size or weights.sum() <= 0:
             return False
         W = weights.sum()
         dt = self._draw_dt(W)
         j = self.rng.choice(len(sites), p=weights / W)
-        i = sites[j]
-        k = pools[j][self.rng.integers(pools[j].size)]
+        i = int(sites[j])
+        pool = self._diffusion_pool(i, kinds[j])
+        k = pool[self.rng.integers(pool.size)]
         self._swap(i, k)
         self.last.update(type="Diffusion", Ospcs=self.spt.code2sym[self.spc[k]],
                          Ea=float(eact[k]), reactRate=float(rate[k] if rate[k] else 0),
@@ -1570,6 +1641,12 @@ class Engine:
                     if (self.min_ce > 0 and self.stepCurrentV >= 10
                             and self._ce_inst < self.min_ce):
                         return
+                    # end_half_when_blocked: count scans where nothing can fire
+                    # (kept across steps; a fired reaction resets it)
+                    if self.block_limit > 0 and self._last_W <= 0:
+                        self.blocked_tries += 1
+                        if self.blocked_tries >= self.block_limit:
+                            return
                     self.flushElectrolyte(); self.updateEther()
                     self.addSolvent(); self.addLithiumSalt(); self.updateCharges()
                     attempts += 1
@@ -1588,6 +1665,7 @@ class Engine:
         self.updateCharges()
 
         if self.last["type"] != "Diffusion":
+            self.blocked_tries = 0
             self.timeCurrentV += self.last["time"]
             self.currentTime += self.last["time"]
             self.countOandF()
@@ -1730,6 +1808,13 @@ class Engine:
                 self.step()
                 if self.stalled:
                     break
+                if self.stop_blocked > 0 and max(self.blocked_halves_begin,
+                                                 self.blocked_halves_end) >= self.stop_blocked:
+                    self.anode_blocked = True
+                    self.out.log(f"{max(self.blocked_halves_begin, self.blocked_halves_end)} "
+                                 f"consecutive half-cycles of the same type ended blocked "
+                                 f"(no reaction possible) at half-cycle {self.cycleNumber}. Stopping.")
+                    break
                 if self.stop_anode_halves > 0 and self.cycleNumber != last_stop_check:
                     cur = _anode_events()
                     anode_idle = anode_idle + 1 if cur == anode_prev else 0
@@ -1803,6 +1888,12 @@ class Engine:
         if self.idle_limit > 0:
             self.out.log(f"end_half_when_idle={self.idle_limit}: half-cycles end after that "
                          f"many consecutive events without Li transfer")
+        if self.block_limit > 0:
+            self.out.log(f"end_half_when_blocked={self.block_limit}: half-cycles end after that "
+                         f"many consecutive scans with no possible reaction"
+                         + (f"; run stops after {self.stop_blocked} such halves in a row"
+                            if self.stop_blocked > 0 else "")
+                         + " (counted per half type)")
         if self.min_ce > 0:
             self.out.log(f"end_half_min_ce={self.min_ce}: half-cycles end when the instantaneous "
                          f"current efficiency W_transfer/(W_transfer+W_parasitic) of the "
@@ -1832,7 +1923,9 @@ class Engine:
                      "li_pool", "li_pool0", "li_shuttled", "li_deposit",
                      "li_plated_pool", "reservoir_sites",
                      "li_bulk", "li_bulk_drawn", "li_bulk_returned", "s_cei", "li_cei",
-                     "deposit_unplaced", "n_elec0", "pool_full_blocks")
+                     "deposit_unplaced", "n_elec0", "pool_full_blocks",
+                     "idle_events", "blocked_tries", "blocked_halves_begin",
+                     "blocked_halves_end")
 
     def save_checkpoint(self, path: str = ""):
         import json
