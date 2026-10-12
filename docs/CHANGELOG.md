@@ -1,5 +1,26 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-10-12 (globalA in physical mode; inputs and a log note only)
+- Finding: globalA (legacy prefactor, 0.5) multiplies every rate, including the
+  Butler-Volmer plating/stripping block whose per-site rate already comes from
+  j0. It only rescales the clock (events identical, times x 1/globalA): verified
+  with anode_physical (20 half-cycles) and fullcell_physical (5 half-cycles,
+  galvanostatic cathode, shuttle, CEI): cycle_stats identical in every column
+  except time, ratio exactly 2. Exception in principle: the C++ rule that
+  rejects a non-diffusion event waiting longer than scanInterval/5 and the
+  time-based half-cycle end can only differ when the total rate is tiny (a dead
+  anode), never in the runs above.
+- Consequence for runs up to today (anode_physical*, fullcell_physical, the
+  plating sweeps): effective j0 = 0.5 x input; currents x 2 and times x 0.5 give
+  the values at the labelled j0. Event statistics unchanged.
+- Inputs: globalA 1.0 in cases/anode_physical, anode_physical_A10,
+  anode_physical_A100, fullcell_physical, fullcell_tall (with a comment). The
+  sweep_plating_j0* member inputs keep 0.5 so that they match their results.
+- Engine (log only): with anode_kinetics bv and globalA != 1 the info log prints
+  a NOTE with the effective j0 and the time factor. Legacy runs unaffected.
+- Validation: anode_small and fullcell_small byte-identical (12/12 each).
+  engine.py fe58e86c.
+
 ## 2026-10-07 (speed pass 2 and blocked half-cycles)
 - Speed (no change in results): incremental neighbour counts use
   np.add.at / np.subtract.at; _refresh_counts returns early when occupancy

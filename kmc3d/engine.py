@@ -1883,6 +1883,14 @@ class Engine:
                          f"eta_charge={self.eta_c} V, eta_discharge={self.eta_d} V "
                          f"(plating factor {np.exp(-self.bv_alpha * self.eta_c / self.kT_V):.2f}, "
                          f"stripping factor {np.exp(self.bv_alpha * self.eta_d / self.kT_V):.2f})")
+            if self.p.globalA != 1.0:
+                # globalA multiplies EVERY rate (legacy prefactor): with per-site
+                # rates taken from j0 it only rescales the kMC clock (events are
+                # identical, time x 1/globalA), so physical runs expect 1.0
+                self.out.log(f"NOTE: globalA={self.p.globalA} multiplies every rate; with "
+                             f"anode_kinetics bv the effective j0 is globalA x the input j0 "
+                             f"and kMC times are x {1.0 / self.p.globalA:g}. Use globalA 1.0 "
+                             f"for a clock in real seconds (event statistics are unchanged).")
         if self.presentV == self.p.EndV:
             self.out.log("first_half=end: the run starts with a discharge")
         if self.idle_limit > 0:

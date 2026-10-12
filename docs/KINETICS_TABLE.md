@@ -39,6 +39,19 @@ k0_site, Ea <- Ea, alpha <- alpha, (V - E0) <- eta of the electrode. Needed
 engine addition (opt-in): a per-electrode eta instead of the cell-voltage
 label BeginV/EndV (docs/ANODE_KINETICS.md).
 
+IMPORTANT (2026-10-12): globalA multiplies EVERY rate in the engine (BV plating
+and stripping, every DECOMPOSITION.in channel, diffusion, cathode, shuttle). It
+is the legacy prefactor of the original engine (0.5). Because it scales all
+rates equally it does not change which events happen, only the kMC clock
+(times x 1/globalA). With per-site rates taken from j0, physical cases must use
+globalA 1.0; the cases run up to 2026-10-12 used 0.5, i.e. an effective j0 of
+half the input (15 instead of 30 mA cm^-2 at the reference) and currents half
+of the real value. Their event statistics (side reactions, SEI, CE, Li trapped,
+failure cycles, morphology) are exactly those of globalA 1.0; time-derived
+quantities convert exactly: current x 2, time x 0.5. Verified on
+anode_physical (20 half-cycles) and fullcell_physical (5 half-cycles):
+identical cycle_stats except the time column (ratio 2.000).
+
 ## 2. kMC time versus cycle time (a modelling decision, not a parameter)
 
 With physical absolute rates (10 s^-1 per surface site, ~300 surface sites)
@@ -55,6 +68,7 @@ clock. This must be stated in every report.
 ## 3. Anode (Li metal in 1.2 M LiFSI / F5DEE)
 
 Per-site conversion: k0_site = j0 * A_site / e, A_site = 4.0e-16 cm^2.
+Rates used by the engine = globalA x these values; physical cases use globalA 1.0 (see above).
 
 | Process | Parameter | Value @298 K | Per-site rate | Source (verified) | Tag |
 |---|---|---|---|---|---|

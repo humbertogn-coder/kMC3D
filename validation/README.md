@@ -89,3 +89,6 @@ anode_small and fullcell_small byte-identical (12/12 files each). Restart-equiva
 
 ## 2026-10-07 speed pass 2 and end_half_when_blocked
 anode_small and fullcell_small byte-identical (12/12 files each) with the vectorized diffusion candidates, incremental counts and the new opt-in keywords end_half_when_blocked / stop_blocked_halves absent. Restart-equivalence test on fullcell_small passes (cycle_stats.csv f7d6c677). engine.py 4f448b4e, config.py 4913fd0c.
+
+## 2026-10-12 globalA note in bv mode
+anode_small and fullcell_small byte-identical (12/12 each) after adding the bv-mode log NOTE on globalA (log only). globalA invariance test: anode_physical 20 half-cycles and fullcell_physical 5 half-cycles with globalA 0.5 vs 1.0 give identical cycle_stats except time (ratio 2.000). engine.py fe58e86c.

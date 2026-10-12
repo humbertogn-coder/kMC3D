@@ -19,7 +19,11 @@ printStepFreq 1
 XYZprintFreq 0
 snapshotEveryCycles 10
 checkpointEveryCycles 10
-globalA 0.5
+# globalA: legacy prefactor that multiplies EVERY rate. With anode_kinetics bv the
+# per-site rates already come from j0 (k0 = j0 A_site / e), so 1.0 keeps the kMC
+# clock in real seconds. 0.5 (used up to 2026-10-12) gives identical events with
+# all times x 2 (effective j0 halved); verified on anode_physical and fullcell_physical.
+globalA 1.0
 numberDecompositionRxns 25
 nMobilityReactions 3
 # ---- Li-S coupling (new) ---------------------------------------------------
