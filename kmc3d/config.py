@@ -143,11 +143,23 @@ class Parameters:
     #   bv_k0_site      s^-1 per site; 74 = j0 29.8 mA/cm2 (Boyle 2020, LiFSI/DME)
     #   bv_alpha        0.5 (Butler-Volmer, low overpotential; Boyle 2020)
     #   eta_charge, eta_discharge   V, magnitude set by the simulated C-rate
+    #   bv_strip_symmetric  0 = off (as above: only the lowest-Eact surface Li
+    #                   strips at the full k0, the others are damped by
+    #                   exp(-(Eact_i - Eact_min)/kT), so the total stripping
+    #                   capability is far below the plating one at the same
+    #                   |eta|). 1 = exchange symmetry: the stripping total is
+    #                   k0 x (number of growth sites of the surface, counted as
+    #                   for plating), so at eta = 0 the same surface plates and
+    #                   strips at the same rate, as Butler-Volmer requires; Eact
+    #                   only decides WHICH strippable Li (Li0, nLi <= 4,
+    #                   touching electrolyte) leaves, with probability
+    #                   proportional to exp(-(Eact_i - Eact_min)/kT).
     anode_kinetics: str = "legacy"
     bv_k0_site: float = 74.0
     bv_alpha: float = 0.5
     eta_charge: float = -0.03
     eta_discharge: float = 0.03
+    bv_strip_symmetric: int = 0
     # ---- physically based cathode kinetics (opt-in) ----------------------
     #   cathode_kinetics  legacy -> REGION cathode reactions use the cell
     #                     voltage label (BeginV / EndV) in the Arrhenius term,
@@ -276,7 +288,7 @@ class Parameters:
         "li_bulk_init": int, "li_pool_max": int,
         "stop_electrolyte_fraction": float, "stop_anode_inactive_halves": int,
         "anode_kinetics": str, "bv_k0_site": float, "bv_alpha": float,
-        "eta_charge": float, "eta_discharge": float,
+        "eta_charge": float, "eta_discharge": float, "bv_strip_symmetric": int,
         "cathode_kinetics": str, "cathode_V_charge": float, "cathode_V_discharge": float,
         "cathode_V_min": float, "cathode_V_max": float, "cathode_current_factor": float,
         "first_half": str, "end_half_when_idle": int,

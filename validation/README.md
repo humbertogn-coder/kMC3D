@@ -92,3 +92,6 @@ anode_small and fullcell_small byte-identical (12/12 files each) with the vector
 
 ## 2026-10-12 globalA note in bv mode
 anode_small and fullcell_small byte-identical (12/12 each) after adding the bv-mode log NOTE on globalA (log only). globalA invariance test: anode_physical 20 half-cycles and fullcell_physical 5 half-cycles with globalA 0.5 vs 1.0 give identical cycle_stats except time (ratio 2.000). engine.py fe58e86c.
+
+## 2026-10-12 bv_strip_symmetric (opt-in)
+anode_small and fullcell_small byte-identical (12/12 each). anode_physical (bv) without the keyword: cycle_stats 767bed99 and Data2Excel 4524d699, identical to the previous engine. engine.py cd0760df, config.py 7967b700.

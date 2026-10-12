@@ -208,6 +208,7 @@ class Engine:
         self.bv_alpha = float(getattr(params, "bv_alpha", 0.5))
         self.eta_c = float(getattr(params, "eta_charge", -0.03))
         self.eta_d = float(getattr(params, "eta_discharge", 0.03))
+        self.bv_strip_sym = int(getattr(params, "bv_strip_symmetric", 0)) > 0
         self.kT_V = KB_EV * params.temperature      # k_B T / e in volts
         _ck = str(getattr(params, "cathode_kinetics", "legacy")).lower()
         self.cath_galv = _ck == "galvanostatic"
@@ -674,6 +675,16 @@ class Engine:
         return 0.5 * (lo + hi)
 
     # --------------------------------------------------------- population ops
+    def _strip_sym_sites(self, n_cand):
+        """Active-site count for bv_strip_symmetric: the number of plating
+        growth sites of the current surface (empty BC next to electrolyte and
+        to 2 to 5 Li), so that at eta = 0 the total stripping and plating
+        rates of the same surface are equal (Butler-Volmer exchange symmetry).
+        Falls back to the number of strippable Li if the surface has no
+        growth site."""
+        n_g = int((self._eligible_BC() & (self.nETH > 0) & (self.nLi >= 2) & (self.nLi <= 5)).sum())
+        return n_g if n_g > 0 else int(n_cand)
+
     def _eligible_BC(self):
         return (self.occ != 1) & self.lat.is_BC()
 
@@ -1416,12 +1427,23 @@ class Engine:
                 if self.bv and strip_raw and strip_raw["sigma"] != 0 and cand_li.size:
                     e_min_c = float(eact[cand_li].min())
                     k_c = self.bv_k0 * self.p.globalA * np.exp(self.bv_alpha * self.eta_d / self.kT_V)
-                    self._w_anode_cap = float((k_c * np.exp(-(eact[cand_li] - e_min_c) / self.kT)).sum())
+                    bw_c = np.exp(-(eact[cand_li] - e_min_c) / self.kT)
+                    if self.bv_strip_sym:
+                        # exchange symmetry: same active area as plating
+                        self._w_anode_cap = float(k_c * self._strip_sym_sites(cand_li.size))
+                    else:
+                        self._w_anode_cap = float((k_c * bw_c).sum())
             if self.bv and strip and cand_li.size:
                 # Butler-Volmer stripping: absolute scale from j0, site
                 # selection from the coordination-dependent Eact (relative)
                 e_min = float(eact[cand_li].min())
                 k_bv_d = self.bv_k0 * self.p.globalA * np.exp(self.bv_alpha * self.eta_d / self.kT_V)
+                if self.bv_strip_sym:
+                    # bv_strip_symmetric: total = k_bv_d x (active sites of the
+                    # surface, counted as for plating); the Eact factors only
+                    # distribute it among the strippable Li
+                    bw = np.exp(-(eact[cand_li] - e_min) / self.kT)
+                    k_bv_d = k_bv_d * self._strip_sym_sites(cand_li.size) / float(bw.sum())
             for i in cand_li:
                 if strip and strip["sigma"] != 0:
                     if self.bv:
@@ -1883,6 +1905,9 @@ class Engine:
                          f"eta_charge={self.eta_c} V, eta_discharge={self.eta_d} V "
                          f"(plating factor {np.exp(-self.bv_alpha * self.eta_c / self.kT_V):.2f}, "
                          f"stripping factor {np.exp(self.bv_alpha * self.eta_d / self.kT_V):.2f})")
+            if self.bv_strip_sym:
+                self.out.log("bv_strip_symmetric=1: stripping total = k0 x (growth sites of the "
+                             "surface), as for plating (exchange symmetry); Eact only selects the site")
             if self.p.globalA != 1.0:
                 # globalA multiplies EVERY rate (legacy prefactor): with per-site
                 # rates taken from j0 it only rescales the kMC clock (events are

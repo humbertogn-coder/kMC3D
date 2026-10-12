@@ -69,6 +69,10 @@ clock. This must be stated in every report.
 
 Per-site conversion: k0_site = j0 * A_site / e, A_site = 4.0e-16 cm^2.
 Rates used by the engine = globalA x these values; physical cases use globalA 1.0 (see above).
+Stripping: same k0 as plating. Default: only the lowest-Eact surface Li strip at the full
+rate (others damped by exp(-dEact/kT)), so stripping capability << plating. With
+bv_strip_symmetric 1 the stripping total equals the plating total of the same surface at
+eta = 0 (exchange symmetry); Eact only selects the site. Recommended for physical runs.
 
 | Process | Parameter | Value @298 K | Per-site rate | Source (verified) | Tag |
 |---|---|---|---|---|---|

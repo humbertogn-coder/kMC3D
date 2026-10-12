@@ -1,5 +1,31 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-10-12 (opt-in bv_strip_symmetric: Butler-Volmer exchange symmetry)
+- Finding: in anode_kinetics bv, plating weighs k0 x (growth sites of the
+  surface, ~180 in the 10x10x30 box) while stripping weighs k0 x
+  exp(-(Eact_i - Eact_min)/kT) over the strippable Li (Li0, nLi <= 4, touching
+  electrolyte), i.e. only the lowest-Eact Li strip at the full k0. At the same
+  |eta| the stripping current was 10 to 60 times below the plating current
+  (anode_physical, 3 seeds: 24.8 vs 1.85 mA/cm2 with globalA 1), and the
+  discharge halves dominated the kMC time. Butler-Volmer requires the same
+  exchange rate in both directions.
+- New keyword bv_strip_symmetric (PARAMETERS.in, default 0 = previous
+  behaviour): 1 sets the stripping total to k0 x exp(+alpha F eta/RT) x (the
+  same growth-site count used for plating), so at eta = 0 the same surface
+  plates and strips at the same rate; Eact only selects WHICH strippable Li
+  leaves (probability proportional to exp(-(Eact_i - Eact_min)/kT), unchanged).
+  The galvanostatic anode capability of the full cell uses the same total.
+- Test (anode_physical, globalA 1.0, 30 half-cycles, seeds 8597/8601/8602):
+  j_plate / j_strip 26 -> 1.04 (22.2 vs 21.4 mA/cm2); side reactions, Li
+  trapped and roughness within seed noise (the stripping site choice is
+  unchanged; only the rare surface-diffusion competition differs); total kMC
+  time 1.31 s -> 0.07 s. Not yet tested in the full cell (the galvanostatic
+  cathode will see a larger anode capability during discharge).
+- Validation: anode_small and fullcell_small byte-identical (12/12 each);
+  anode_physical with the keyword absent gives the same cycle_stats and
+  Data2Excel as before (767bed99 / 4524d699). engine.py cd0760df,
+  config.py 7967b700.
+
 ## 2026-10-12 (globalA in physical mode; inputs and a log note only)
 - Finding: globalA (legacy prefactor, 0.5) multiplies every rate, including the
   Butler-Volmer plating/stripping block whose per-site rate already comes from
