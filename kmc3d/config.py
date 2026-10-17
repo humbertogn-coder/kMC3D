@@ -275,6 +275,17 @@ class Parameters:
     #                   Frame 0 and the per-step frames obey the same list.
     xyz_flip_every: int = 1
     xyz_exclude: str = ""
+    #   minR_rule       exact (default): a Li within minR of an SEI fragment is
+    #                   ionised (updateCharges) and counts in the fragment's
+    #                   Eact when distance <= minR on the exact lattice, so all
+    #                   nominally equidistant neighbours are inside.
+    #                   cpp: reproduce the original C++ decisions, made on text
+    #                   coordinates (10 decimals): about one third of the
+    #                   equidistant neighbours fall outside by rounding, so
+    #                   fewer Li are ionised around each fragment. For
+    #                   ORIGINAL 2.0 runs (cases/original_v2*); needs the
+    #                   original basis (generated lattice).
+    minR_rule: str = "exact"
 
     # field name -> caster
     _CAST = {
@@ -295,7 +306,7 @@ class Parameters:
         "end_half_when_blocked": int, "stop_blocked_halves": int,
         "stall_attempts": int, "stall_reruns": int, "stall_p_accept_min": float,
         "end_half_min_ce": float, "ce_electron_channels": str,
-        "xyz_flip_every": int, "xyz_exclude": str,
+        "xyz_flip_every": int, "xyz_exclude": str, "minR_rule": str,
     }
 
     @classmethod

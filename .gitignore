@@ -35,3 +35,5 @@ slurm_logs/
 cases/fullcell_shuttle_test/
 *.tar.gz
 analysis/
+# ---- ORIGINAL 2.0 cases: derived from the confidential original, local only ----
+cases/original_v2*/

@@ -1,5 +1,53 @@
 # Changelog (engine changes, each validated byte-identical on validation/)
 
+## 2026-10-13 (opt-in minR_rule cpp: the C++ tie rule for "Li within minR")
+- Finding (Original 2.0 check): with the Original_kMC inputs (k_p 1e-3, alpha
+  0.5, 56 x 56 x 160 A box) the port matched the C++ Data2Excel.txt for ~15
+  half-cycles and then drifted: after 60 halves Python had LiMetalS ~180 vs
+  455, Plating + FSI 536 vs 750, PlatingSEI 409 vs 281 and ~31 to 40 strippings
+  per discharge vs ~49 (3 seeds vs the C++ run).
+- Cause: updateCharges and getMobilityEact test Dis(i, k) <= minR, with minR the
+  distance to the first BA (OC-type site) or TE (BA-type site) neighbour. Many
+  neighbours sit at exactly that distance. The C++ reads the coordinates from
+  text (10 decimals), so each tie passes or fails by rounding: about one third
+  fail (OC-type: 1.27 of 2 BCB and 2.69 of 4 BA inside; BA-type: 5.7 of 8 TE),
+  while the exact geometry keeps all of them inside. The C++ therefore ionises
+  fewer Li around every SEI fragment (one FSI event: ~7.6 vs 12 Li charged) and
+  keeps more neutral Li at the surface. Neighbour counts, wrap, updateLiMetal,
+  updateEther, candidate rates and the initial lattice were checked equal.
+- New keyword minR_rule (PARAMETERS.in): exact (default, unchanged) or cpp. cpp
+  rebuilds, at start-up, the per-edge decision with C++-rounded coordinates,
+  the C++ Dis() operation order and the C++ site order for the reference
+  neighbour; checked edge by edge against the decision computed from
+  Original_kMC/directCoordinates: 0 mismatches in 1,756,160 edges.
+- With minR_rule cpp, 2 seeds x 60 halves vs the C++ run: strippings 1432 vs
+  1424, LiMetal 5186 vs 5222, LiMetalS 496 vs 455, FSI 385 vs 395, PlatingSEI
+  291 vs 281, SFO 129 vs 130, SOL 42 vs 44; Plating 427 vs 355 and SOL2 227 vs
+  295 (one C++ seed only).
+- Default path unchanged: validation 12/12 + 12/12. Used in cases/original_v2*.
+  The physical engine and all earlier kmc3d results use the exact rule.
+
+## 2026-10-12 (bv_strip_symmetric: full-cell test; enabled in the anode cases)
+- fullcell_physical, globalA 1.0, 10 half-cycles, seeds 8598 / 8599, keyword
+  off vs on: Li and S conserved in all four runs; discharge capacity 593 vs
+  580 mAh/g_S; CE_cathode 1.01 vs 1.00; mean cathode potential in discharge
+  2.14 V vs 2.03 V (the galvanostatic cathode now has to match a stripping
+  capability ~8x larger: more polarization); charge 2.48 V in both; stripping
+  current 2.6 vs 19.8 mA/cm2 (plating 17.6 vs 19.0): discharge and charge now
+  run at the same current; kMC time per discharge 0.75 s vs 0.03 s.
+- Consequence found: time-based (chemical) steps of the cathode (dissolution,
+  re-precipitation, shuttle, CEI) act per SECOND, while the box holds only
+  ~0.16 uAh/cm2 (560 Li cycled in 40 x 40 A), so a half-cycle at mA/cm2 lasts
+  0.03 s (an effective rate of ~1e5 C; a real C/10 half takes 10 h). With the
+  keyword the dissolved polysulfide at the end of 10 half-cycles drops from
+  13.5 to 0.5 units, because each discharge is 25x shorter. The default had
+  the same mismatch, only hidden by the slow stripping. These chemical rates
+  need a per-cycle (C-rate consistent) calibration before the keyword is used
+  in the full cell; fullcell_physical and fullcell_tall keep it off for now.
+- Enabled (bv_strip_symmetric 1) in cases/anode_physical, anode_physical_A10,
+  anode_physical_A100 (half cells: no time-based chemistry, side reactions only
+  in charge halves, so only the discharge clock changes).
+
 ## 2026-10-12 (opt-in bv_strip_symmetric: Butler-Volmer exchange symmetry)
 - Finding: in anode_kinetics bv, plating weighs k0 x (growth sites of the
   surface, ~180 in the 10x10x30 box) while stripping weighs k0 x

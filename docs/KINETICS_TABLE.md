@@ -73,6 +73,12 @@ Stripping: same k0 as plating. Default: only the lowest-Eact surface Li strip at
 rate (others damped by exp(-dEact/kT)), so stripping capability << plating. With
 bv_strip_symmetric 1 the stripping total equals the plating total of the same surface at
 eta = 0 (exchange symmetry); Eact only selects the site. Recommended for physical runs.
+Full cell time scale (2026-10-12): the box cycles ~0.16 uAh/cm2, so at mA/cm2 a
+half-cycle lasts ~0.03 s (~1e5 C). Per-second chemical rates of the cathode
+(dissolution, precipitation, shuttle, CEI) are therefore under-represented per cycle by
+the ratio of a real half-cycle time to the kMC one; they must be recalibrated per cycle
+(e.g. the shuttle through the dimensionless shuttle factor f_c = k_s q_H [S] / I at the
+simulated current) before comparing fade with experiments.
 
 | Process | Parameter | Value @298 K | Per-site rate | Source (verified) | Tag |
 |---|---|---|---|---|---|

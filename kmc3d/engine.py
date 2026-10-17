@@ -113,6 +113,14 @@ class Engine:
         self._build_edges()
         self._build_interaction_matrix()
         self._build_minR()
+        # minR_rule (opt-in): "exact" (default) tests 'distance <= minR' on the
+        # exact lattice geometry; "cpp" reproduces the decisions of the original
+        # C++ engine, whose text coordinates make about a third of the nominally
+        # equidistant neighbours fall outside minR (see _build_inside_minR_cpp)
+        self.minR_rule = str(getattr(params, "minR_rule", "exact")).lower()
+        if self.minR_rule not in ("exact", "cpp"):
+            raise ValueError(f"minR_rule must be 'exact' or 'cpp', got '{self.minR_rule}'")
+        self.inside_minR = self._build_inside_minR_cpp() if self.minR_rule == "cpp" else None
 
         # scalars
         self.kT = KB_EV * params.temperature
@@ -414,6 +422,70 @@ class Engine:
             minR[sites] = np.sqrt((d * d).sum(axis=1))
         self.minR_geom = minR   # geometric; SEI gating applied at use time
 
+    # basis positions of the original POSCAR in the order the C++ engine
+    # enumerates them inside a cell (quarter units of the cubic cell); BCB and
+    # BCO have one position per cell. Used only by minR_rule cpp.
+    _CPP_BASIS = {
+        BA: ((0, 2, 2), (2, 0, 2), (2, 2, 0)),
+        OC: ((0, 2, 0), (0, 0, 2), (2, 0, 0)),
+        TE: ((1, 3, 1), (3, 1, 3), (3, 1, 1), (1, 3, 3), (3, 3, 3), (1, 1, 1),
+             (1, 1, 3), (3, 3, 1)),
+    }
+
+    def _build_inside_minR_cpp(self):
+        """Per-edge flag 'Dis(i, k) <= minR_i' exactly as the C++ engine
+        evaluates it (updateCharges, getMobilityEact). The C++ reads the
+        fractional coordinates from text (10 decimals), uses its own Dis()
+        operation order, and takes minR_i = Dis(i, ba[0]) for OC-type sites
+        (OC, BCO) and Dis(i, te[0]) for BA-type sites (BA, BCB), where [0] is
+        the neighbour with the lowest C++ site index (order: type, cell with z
+        fastest, basis position). Neighbours nominally at exactly minR then
+        pass or fail by rounding: in the original box about one third of them
+        fail, which leaves more Li neutral around every SEI fragment than the
+        exact rule does. Sites without a reference neighbour keep every edge
+        (minR = 1000, as in the exact rule)."""
+        lat = self.lat
+        X = np.round(lat.frac, 10)
+        M = lat.box
+        n = np.array([self.g.nx, self.g.ny, self.g.nz])
+
+        def dis(i, j):
+            x1, x2 = X[i], X[j]
+            d = x2 - x1
+            xf = np.where(d < -0.5, x2 + 1, np.where(d > 0.5, x2 - 1, x2))
+            r = [((x1[:, 0] * M[0, c] + x1[:, 1] * M[1, c]) + x1[:, 2] * M[2, c])
+                 - ((xf[:, 0] * M[0, c] + xf[:, 1] * M[1, c]) + xf[:, 2] * M[2, c])
+                 for c in range(3)]
+            return np.sqrt((r[0] * r[0] + r[1] * r[1]) + r[2] * r[2])
+
+        # C++ site order key: type, cell (x, y, z; z fastest), basis position
+        u = lat.frac * n
+        cell = np.floor(u + 1e-9).astype(np.int64) % n
+        q = np.rint((u - np.floor(u + 1e-9)) * 4).astype(np.int64) % 4
+        brank = np.zeros(self.N, dtype=np.int64)
+        for code, pos in self._CPP_BASIS.items():
+            sel = np.flatnonzero(lat.name_code == code)
+            qq = q[sel]
+            rk = np.full(sel.size, -1, dtype=np.int64)
+            for k, (a, b, c) in enumerate(pos):
+                rk[(qq[:, 0] == a) & (qq[:, 1] == b) & (qq[:, 2] == c)] = k
+            if (rk < 0).any():
+                raise ValueError("minR_rule cpp: lattice basis does not match the original POSCAR")
+            brank[sel] = rk
+        tr = {BCB: 0, BCO: 1, BA: 2, OC: 3, TE: 4}
+        trank = np.vectorize(tr.get)(lat.name_code).astype(np.int64)
+        key = ((((trank * n[0] + cell[:, 0]) * n[1] + cell[:, 1]) * n[2] + cell[:, 2]) * 8) + brank
+
+        minR = np.full(self.N, np.inf)
+        for r, mask_site in ((BA, lat.is_OCsite()), (TE, lat.is_BAsite())):
+            ptr, idx = lat.nbr_indptr[r], lat.nbr_indices[r]
+            for i in np.flatnonzero(mask_site):
+                nb = idx[ptr[i]:ptr[i + 1]]
+                if nb.size:
+                    j = nb[np.argmin(key[nb])]
+                    minR[i] = dis(np.array([i]), np.array([j]))[0]
+        return dis(self.src, self.dst) <= minR[self.src]
+
     def _edge_dist(self, i, j):
         cart = self.lat.frac @ self.lat.box
         Lv = np.array([self.lat.box[0, 0], self.lat.box[1, 1], self.lat.box[2, 2]])
@@ -603,8 +675,11 @@ class Engine:
         src = self.src[e]; dst = self.dst[e]
         is_li_dst = self.spc[dst] == self.cLi
         # SEI sites: restrict to minR; non-SEI: no restriction (minR huge)
-        minR = np.where(self.seiM, self.minR_geom, 1000.0)
-        within = np.where(is_li_dst, self.edist[e] <= minR[src], True)
+        if self.inside_minR is not None:          # minR_rule cpp
+            within = np.where(is_li_dst & self.seiM[src], self.inside_minR[e], True)
+        else:
+            minR = np.where(self.seiM, self.minR_geom, 1000.0)
+            within = np.where(is_li_dst, self.edist[e] <= minR[src], True)
         Iv = self.INT[self.spc[src], self.spc[dst]]
         valid = occ1[dst] & within & (Iv > 0) & (Iv < 1)
         return np.bincount(src, weights=Iv * valid, minlength=self.N)
@@ -1029,7 +1104,10 @@ class Engine:
         e = self._edges_of_sites(np.flatnonzero(seiM))
         src = self.src[e]; dst = self.dst[e]
         li_dst = (self.occ[dst] == 1) & (self.spc[dst] == self.cLi)
-        within = self.edist[e] <= self.minR_geom[src]
+        if self.inside_minR is not None:          # minR_rule cpp
+            within = self.inside_minR[e]
+        else:
+            within = self.edist[e] <= self.minR_geom[src]
         hit_dst = dst[li_dst & within]
         self.chg[np.unique(hit_dst)] = 1
         self._chg_snap = (self.occ.copy(), self.spc.copy(), self.chg.copy())
@@ -1916,6 +1994,10 @@ class Engine:
                              f"anode_kinetics bv the effective j0 is globalA x the input j0 "
                              f"and kMC times are x {1.0 / self.p.globalA:g}. Use globalA 1.0 "
                              f"for a clock in real seconds (event statistics are unchanged).")
+        if self.inside_minR is not None:
+            self.out.log("minR_rule=cpp: Li within minR of an SEI fragment decided as in the "
+                         "original C++ (text coordinates; ~1/3 of the equidistant neighbours "
+                         "fall outside), for ORIGINAL 2.0 runs")
         if self.presentV == self.p.EndV:
             self.out.log("first_half=end: the run starts with a discharge")
         if self.idle_limit > 0:

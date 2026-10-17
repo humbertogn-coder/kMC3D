@@ -50,3 +50,7 @@ eta_discharge 0.03
 # CE_mod counts one electron per decomposition of these types; SOL2 (F5DEE on
 # Li2O) is a chemical defluorination and is excluded (2026-09-29).
 ce_electron_channels FSI,SFO,SOL,F5D
+# bv_strip_symmetric 1: Butler-Volmer exchange symmetry (stripping total = plating
+# total of the same surface at eta = 0; Eact only picks the site). Without it the
+# stripping current is 10 to 60 x below plating at the same |eta| (2026-10-12).
+bv_strip_symmetric 1

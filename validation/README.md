@@ -95,3 +95,6 @@ anode_small and fullcell_small byte-identical (12/12 each) after adding the bv-m
 
 ## 2026-10-12 bv_strip_symmetric (opt-in)
 anode_small and fullcell_small byte-identical (12/12 each). anode_physical (bv) without the keyword: cycle_stats 767bed99 and Data2Excel 4524d699, identical to the previous engine. engine.py cd0760df, config.py 7967b700.
+
+## 2026-10-13 minR_rule (opt-in, cpp)
+anode_small and fullcell_small byte-identical (12/12 each) with the keyword absent (default exact). With minR_rule cpp the per-edge "inside minR" decision equals the one computed from the C++ input coordinates (Original_kMC/directCoordinates) on all 1,756,160 OC/BA-type edges of the 56 x 56 x 160 A box. engine.py 34ac5214, config.py 2a3b0756.
